@@ -73,9 +73,9 @@ class Executor(DataContainer, UserFunctor):
     #UserFunctor required method
     #Override this with your own workflow.
     def UserFunction(self, **kwargs):
+        self.ParseArgs() #first, to enable debug and other such settings.
         self.RegisterAllClasses()
         self.InitData()
-        self.ParseArgs()
 
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
     def GetRegistered(self, registeredName):

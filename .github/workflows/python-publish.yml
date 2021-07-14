@@ -33,5 +33,5 @@ jobs:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        ebbs -l py -d build
+        ebbs -l py build
         twine upload dist/*
