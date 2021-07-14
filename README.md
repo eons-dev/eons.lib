@@ -34,7 +34,7 @@ Normally, one has to `import` the files they create into their "main" file in or
 In some `MyDatum.py` in a `MyData` directory, you might have:
 ```
 import logging
-from eons.Datum import Datum
+from eons import Datum
 class MyDatum(Datum): #Datum is a useful child of SelfRegistering
     def __init__(self, name="only relevant during direct instantiation"):
         logging.info(f"init MyDatum")
@@ -43,8 +43,8 @@ class MyDatum(Datum): #Datum is a useful child of SelfRegistering
 From our main.py, we can then call:
 ```
 import sys, os
-from eons.SelfRegistering import SelfRegistering, RegisterAllClassesInDirectory
-RegisterAllClassesInDirectory(os.path.join(os.path.dirname(os.path.abspath(__file__)), "MyData"))
+from eons import SelfRegistering
+SelfRegistering.RegisterAllClassesInDirectory(os.path.join(os.path.dirname(os.path.abspath(__file__)), "MyData"))
 ```
 Here, we use `os.path` to make the file path relevant to the project folder and not the current working directory.
 Then, from main, etc. we can call:
