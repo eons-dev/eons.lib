@@ -8,7 +8,7 @@ from .Errors import *
 #This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
 class UserFunctor(ABC, Datum):
 
-    def __init__(self, name=INVALID_NAME):
+    def __init__(self, name=INVALID_NAME()):
         super().__init__(name)
         self.requiredKWArgs = []
 

@@ -12,7 +12,7 @@ class Datum(SelfRegistering):
     def __new__(cls, *args, **kwargs):
         return object.__new__(cls)
 
-    def __init__(self, name=INVALID_NAME, number=0):
+    def __init__(self, name=INVALID_NAME(), number=0):
         # logging.debug("init Datum")
 
         #Names are generally useful.

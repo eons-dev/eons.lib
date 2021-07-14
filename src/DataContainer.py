@@ -8,7 +8,7 @@ from .Datum import Datum
 #Each DataContainer is comprised of multiple Data (see Datum.py for more).
 #NOTE: DataContainers are, themselves Data. Thus, you can nest your child classes however you would like.
 class DataContainer(Datum):
-    def __init__(self, name=INVALID_NAME):
+    def __init__(self, name=INVALID_NAME()):
         super().__init__(name)
         self.data = []
 

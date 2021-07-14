@@ -18,7 +18,7 @@ from .SelfRegistering import SelfRegistering
 #NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, UserFunctor):
 
-    def __init__(self, name=INVALID_NAME, descriptionStr="eons python framework. Extend as thou wilt."):
+    def __init__(self, name=INVALID_NAME(), descriptionStr="eons python framework. Extend as thou wilt."):
         self.SetupLogging()
         
         super().__init__(name)
