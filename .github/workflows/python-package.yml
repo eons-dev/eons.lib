@@ -38,6 +38,7 @@ jobs:
     - name: Build package for testing
       run: |
         ebbs -l py -d build
+        cat build/eons/eons.py
     - name: Test with pytest
       run: |
         pytest test/*
