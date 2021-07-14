@@ -128,4 +128,3 @@ class DataContainer(Datum):
         if (preventDuplicatesOf is not None):
             return self.RemoveDuplicateDataOf(preventDuplicatesOf)
         return []
-
