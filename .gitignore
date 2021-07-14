@@ -130,3 +130,6 @@ dmypy.json
 
 # Test files
 *eons-test*
+
+# EBBS build dir
+generated/
