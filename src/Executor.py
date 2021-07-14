@@ -28,9 +28,6 @@ class Executor(DataContainer, UserFunctor):
         self.AddArgs()
 
         self.registerDirectories = []
-
-        self.InitData()
-        self.RegisterAllClasses()
         
     #Add a place to search for SelfRegistering classes.
     #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
@@ -76,6 +73,8 @@ class Executor(DataContainer, UserFunctor):
     #UserFunctor required method
     #Override this with your own workflow.
     def UserFunction(self, **kwargs):
+        self.RegisterAllClasses()
+        self.InitData()
         self.ParseArgs()
 
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
