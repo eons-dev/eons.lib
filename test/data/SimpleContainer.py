@@ -1,8 +1,7 @@
 import sys, os, logging
-from eons import Constants as c
-from eons.DataContainer import DataContainer
+import eons as e
 
-class SimpleContainer(DataContainer):
-    def __init__(self, name=c.INVALID_NAME):
+class SimpleContainer(e.DataContainer):
+    def __init__(self, name=e.INVALID_NAME):
         logging.debug(f"init SimpleContainer")
         super().__init__(name)

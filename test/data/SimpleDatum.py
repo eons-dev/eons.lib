@@ -1,8 +1,7 @@
 import sys, os, logging
-from eons import Constants as c
-from eons.Datum import Datum
+import eons as e
 
-class SimpleDatum(Datum):
-    def __init__(self, name=c.INVALID_NAME):
+class SimpleDatum(e.Datum):
+    def __init__(self, name=e.INVALID_NAME):
         logging.info(f"init SimpleDatum")
         super().__init__()
