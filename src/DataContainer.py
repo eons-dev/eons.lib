@@ -30,7 +30,7 @@ class DataContainer(Datum):
     def GetDatumBy(self, datumAttribute, match):
         for d in self.data:
             try: #within for loop 'cause maybe there's an issue with only 1 Datum and the rest are fine.
-                if (getattr(d, datumAttribute) == match):
+                if (str(getattr(d, datumAttribute)) == str(match)):
                     return d
             except Exception as e:
                 logging.error(f"{self.name} - {e.message}")
@@ -44,13 +44,14 @@ class DataContainer(Datum):
     #Removes all Data in toRem from *this.
     #RETURNS: the Data removed
     def RemoveData(self, toRem):
+        # logging.debug(f"Removing {toRem}")
         self.data = [d for d in self.data if d not in toRem]
         return toRem
 
     #Removes all Data which match toRem along the given attribute
     def RemoveDataBy(self, datumAttribute, toRem):
-        self.data = [d for d in self.data if getattr(d, datumAttribute) not in toRem]
-        return toRem
+        toRem = [d for d in self.data if str(getattr(d, datumAttribute)) in list(map(str, toRem))]
+        return self.RemoveData(toRem)
 
     #Removes all Data in *this except toKeep.
     #RETURNS: the Data removed
@@ -61,7 +62,20 @@ class DataContainer(Datum):
     #Removes all Data except those that match toKeep along the given attribute
     #RETURNS: the Data removed
     def KeepOnlyDataBy(self, datumAttribute, toKeep):
-        toRem = [d for d in self.data if getattr(d, datumAttribute) not in toKeep]
+        # logging.debug(f"Keeping only data with a {datumAttribute} of {toKeep}")
+        # toRem = []
+        # for d in self.data:
+        #     shouldRem = False
+        #     for k in toKeep:
+        #         if (str(getattr(d, datumAttribute)) == str(k)):
+        #             logging.debug(f"found {k} in {d.__dict__}")
+        #             shouldRem = True
+        #             break
+        #     if (shouldRem):
+        #         toRem.append(d)
+        #     else:
+        #         logging.debug(f"{k} not found in {d.__dict__}")
+        toRem = [d for d in self.data if str(getattr(d, datumAttribute)) not in list(map(str, toKeep))]
         return self.RemoveData(toRem)
 
     #Removes all Data with the name "INVALID NAME"
@@ -104,20 +118,20 @@ class DataContainer(Datum):
     #RETURNS: The Data removed
     def RemoveDuplicateDataOf(self, datumAttribute):
         toRem = [] #list of Data
-        alreadyProcessed = [] #list of whatever datumAttribute is.
+        alreadyProcessed = [] #list of strings, not whatever datumAttribute is.
         for d1 in self.data:
             skip = False
             for dp in alreadyProcessed:
-                if (getattr(d1, datumAttribute) == dp):
+                if (str(getattr(d1, datumAttribute)) == dp):
                     skip = True
                     break
             if (skip):
                 continue
             for d2 in self.data:
-                if (d1 is not d2 and getattr(d1, datumAttribute) == getattr(d2, datumAttribute)):
+                if (d1 is not d2 and str(getattr(d1, datumAttribute)) == str(getattr(d2, datumAttribute))):
                     logging.info(f"Removing duplicate Datum {d2} with unique id {getattr(d2, datumAttribute)}")
                     toRem.append(d2)
-                    alreadyProcessed.append(getattr(d1, datumAttribute))
+                    alreadyProcessed.append(str(getattr(d1, datumAttribute)))
         return self.RemoveData(toRem)
 
     #Adds all Data from otherDataContainer to *this.
@@ -128,3 +142,4 @@ class DataContainer(Datum):
         if (preventDuplicatesOf is not None):
             return self.RemoveDuplicateDataOf(preventDuplicatesOf)
         return []
+
