@@ -52,7 +52,7 @@ class Executor(DataContainer, UserFunctor):
     #Register all classes in each directory in self.registerDirectories
     def RegisterAllClasses(self):
         for d in self.registerDirectories:
-            RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
+            self.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
 
     #Something went wrong, let's quit.
     #TODO: should this simply raise an exception?
