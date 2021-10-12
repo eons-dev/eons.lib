@@ -25,6 +25,7 @@ class Executor(DataContainer, UserFunctor):
         
         self.argparser = argparse.ArgumentParser(description = descriptionStr)
         self.args = None
+        self.extraArgs = None
         self.AddArgs()
 
         self.registerDirectories = []
@@ -42,7 +43,7 @@ class Executor(DataContainer, UserFunctor):
     #Adds command line arguments.
     #Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
     def AddArgs(self):
-        self.argparser.add_argument('--verbose', '-v', action='count', default=1)
+        self.argparser.add_argument('--verbose', '-v', action='count', default=0)
 
     #Create any sub-data necessary for child-operations
     #Does not RETURN anything.
@@ -65,7 +66,17 @@ class Executor(DataContainer, UserFunctor):
 
     #Do the argparse thing.
     def ParseArgs(self):
-        self.args = self.argparser.parse_args()
+        self.args, self.extraArgs = self.argparser.parse_known_args()
+
+        extraArgsKeys = []
+        for index in range(0, len(extraArgs), 2):
+            extraArgsKeys.append(extraArgs[index])
+
+        extraArgsValues = []
+        for index in range(1, len(extraArgs), 2):
+            extraArgsValues.append(extraArgs[index])
+
+        self.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
 
         if (self.args.verbose > 0): #TODO: different log levels with -vv, etc.?
             logging.getLogger().setLevel(logging.DEBUG)

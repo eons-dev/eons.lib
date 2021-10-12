@@ -21,9 +21,12 @@ class UserFunctor(ABC, Datum):
     #Override this with any additional argument validation you need.
     #This is called before PreCall(), below.
     def ValidateArgs(self, **kwargs):
+        logging.debug(f'kwargs: {kwargs}')
+        logging.debug(f'required kwargs: {self.requiredKWArgs}')
         for rkw in self.requiredKWArgs:
             if (rkw not in kwargs):
-                raise MissingArgumentError(f"argument \"{rkw}\" not found in {kwargs}")
+                logging.error(f'argument {rkw} not found in {kwargs}')
+                raise MissingArgumentError(f'argument {rkw} not found in {kwargs}') #TODO: not formatting string??
 
     #Override this with any logic you'd like to run at the top of __call__
     def PreCall(self, **kwargs):
