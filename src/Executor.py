@@ -66,7 +66,7 @@ class Executor(DataContainer, UserFunctor):
 
     #Do the argparse thing.
     def ParseArgs(self):
-        self.args, self.extraArgs = self.argparser.parse_known_args()
+        self.args, extraArgs = self.argparser.parse_known_args()
 
         extraArgsKeys = []
         for index in range(0, len(extraArgs), 2):
