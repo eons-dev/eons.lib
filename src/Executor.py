@@ -1,6 +1,9 @@
 import sys, os
 import argparse
 import logging
+import requests
+from zipfile import ZipFile
+from distutils.dir_util import mkpath
 from .Constants import *
 from .DataContainer import DataContainer
 from .UserFunctor import UserFunctor
@@ -20,21 +23,22 @@ class Executor(DataContainer, UserFunctor):
 
     def __init__(self, name=INVALID_NAME(), descriptionStr="eons python framework. Extend as thou wilt."):
         self.SetupLogging()
-        
+
         super().__init__(name)
-        
+
+        self.defaultRepoDirectory = "./eons/"
+        self.registerDirectories = []
+
         self.argparser = argparse.ArgumentParser(description = descriptionStr)
         self.args = None
         self.extraArgs = None
         self.AddArgs()
 
-        self.registerDirectories = []
-        
     #Add a place to search for SelfRegistering classes.
     #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
     def RegisterDirectory(self, directory):
         self.registerDirectories.append(directory)
-        
+
     #Global logging config.
     #Override this method to disable or change.
     def SetupLogging(self):
@@ -44,12 +48,17 @@ class Executor(DataContainer, UserFunctor):
     #Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
     def AddArgs(self):
         self.argparser.add_argument('--verbose', '-v', action='count', default=0)
+        self.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
+        self.argparser.add_argument('--repo-store', type=str, default=self.defaultRepoDirectory, help='file path for storing downloaded packages', dest='repo_store')
+        self.argparser.add_argument('--repo-url', type=str, default='https://api.infrastructure.tech/v1/package', help = 'package repository for additional languages', dest='repo_url')
+        self.argparser.add_argument('--repo-username', type=str, help='username for http basic auth', dest='repo_username')
+        self.argparser.add_argument('--repo-password', type=str, help='password for http basic auth', dest='repo_password')
 
-    #Create any sub-data necessary for child-operations
+    #Create any sub-class necessary for child-operations
     #Does not RETURN anything.
     def InitData(self):
         pass
-        
+
     #Register all classes in each directory in self.registerDirectories
     def RegisterAllClasses(self):
         for d in self.registerDirectories:
@@ -88,9 +97,68 @@ class Executor(DataContainer, UserFunctor):
         self.RegisterAllClasses()
         self.InitData()
 
+    #Attempts to download the given package from the repo url specified in calling args.
+    #Will refresh registered classes upon success
+    #RETURNS void
+    #Does not guarantee new classes are made available; errors need to be handled by the caller.
+    def DownloadPackage(self, packageName):
+
+        url = f'{self.args.repo_url}/download?package_name={packageName}'
+
+        auth = None
+        if self.args.repo_username and self.args.repo_password:
+            auth = requests.auth.HTTPBasicAuth(self.args.repo_username, self.args.repo_password)
+
+        packageQuery = requests.get(url, auth=auth)
+
+        if (packageQuery.status_code != 200 or not len(packageQuery.content)):
+            logging.error(f'Unable to download {packageName}')
+            #TODO: raise error?
+            return #let caller decide what to do next.
+
+        if (not os.path.exists(self.args.repo_store)):
+            logging.debug(f'Creating directory {self.args.repo_store}')
+            mkpath(self.args.repo_store)
+
+        packageZip = os.path.join(self.args.repo_store, f'{packageName}.zip')
+
+        logging.debug(f'Writing {packageZip}')
+        openPackage = open(packageZip, 'wb+')
+        openPackage.write(packageQuery.content)
+        openPackage.close()
+        if (not os.path.exists(packageZip)):
+            logging.error(f'Failed to create {packageZip}')
+            # TODO: raise error?
+            return
+
+        logging.debug(f'Extracting {packageZip}')
+        openArchive = ZipFile(packageZip, 'r')
+        openArchive.extractall(f'{self.args.repo_store}')
+        openArchive.close()
+
+        logging.debug(f'Registering classes in {self.args.repo_store}')
+        self.RegisterAllClassesInDirectory(self.args.repo_store)
+
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
-    def GetRegistered(self, registeredName):
-        registered = SelfRegistering(registeredName)
-        if (not registered or not registered.IsValid()): #UserFunctors are Data, so everything should have an IsValid() method
-            self.ExitDueToErr(f"{registeredName} not found.")
+    def GetRegistered(self, registeredName, prefix=""):
+        try:
+            registered = SelfRegistering(registeredName)
+        except Exception as e:
+            if (self.args.no_repo):
+                raise e
+            logging.debug(f'{registeredName} not found.')
+            packageName = registeredName
+            if (prefix):
+                packageName = f'{prefix}_{registeredName}'
+            logging.debug(f'Trying to download {packageName} from repository ({self.args.repo_url})')
+            self.DownloadPackage(packageName)
+            registered = self.SelfRegistering(registeredName)
+
+        #still no success.
+        #NOTE: UserFunctors are Data, so they have an IsValid() method
+        if (not registered or not registered.IsValid()):
+            logging.error(f'Could not find {registeredName}')
+            raise Exception(f'Could not get registered class for {registeredName}')
+
         return registered
+

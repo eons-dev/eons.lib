@@ -2,7 +2,7 @@ import logging
 from .Constants import *
 from .SelfRegistering import SelfRegistering
 
-#A Datum is a base class for any object-oriented data structure.
+#A Datum is a base class for any object-oriented class structure.
 #This class is intended to be derived from and added to.
 #The members of this class are helpful labels along with the ability to invalidate a datum.
 class Datum(SelfRegistering):
@@ -18,7 +18,7 @@ class Datum(SelfRegistering):
         #Names are generally useful.
         self.name = name
 
-        #Storing validity as a member makes it easy to generate bad return values (i.e. instead of checking for None) as well as manipulate data (e.g. each analysis step invalidates some data and all invalid data are discarded at the end of analysis).
+        #Storing validity as a member makes it easy to generate bad return values (i.e. instead of checking for None) as well as manipulate class (e.g. each analysis step invalidates some class and all invalid class are discarded at the end of analysis).
         self.valid = True 
 
     #Override this if you have your own validity checks.

@@ -3,7 +3,7 @@ import logging
 import sys, os
 import eons as e
 
-sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "data"))
+sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "class"))
 
 from SimpleDatum import SimpleDatum
 

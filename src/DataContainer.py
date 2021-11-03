@@ -62,9 +62,9 @@ class DataContainer(Datum):
     #Removes all Data except those that match toKeep along the given attribute
     #RETURNS: the Data removed
     def KeepOnlyDataBy(self, datumAttribute, toKeep):
-        # logging.debug(f"Keeping only data with a {datumAttribute} of {toKeep}")
+        # logging.debug(f"Keeping only class with a {datumAttribute} of {toKeep}")
         # toRem = []
-        # for d in self.data:
+        # for d in self.class:
         #     shouldRem = False
         #     for k in toKeep:
         #         if (str(getattr(d, datumAttribute)) == str(k)):

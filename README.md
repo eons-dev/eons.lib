@@ -52,3 +52,17 @@ Then, from main, etc. we can call:
 myDatum = SelfRegistering("MyDatum")
 ```
 and we will get a `MyDatum` object, fully instantiated.
+
+### Online Repository
+
+When using an eons Executor, SelfRegistering classes are retrieved with `Executor.GetRegistered(...)`. If the class you are trying to retrieve is not found in the Registered classes, `GetRegistered` will try to download a package for the class.
+You may add credentials and even provide your own repo url for searching. If credentials are supplied, private packages will be searched before public ones.
+Online repository settings can be set through:
+```
+--repo-store
+--repo-url
+--repo-username
+--repo-password
+```
+
+You may also publish to the online repository through [ebbs](https://github.com/eons-dev/bin_ebbs)

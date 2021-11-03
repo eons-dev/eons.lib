@@ -4,7 +4,7 @@ from .Constants import *
 from .Datum import Datum
 from .Errors import *
 
-#UserFunctor is a base class for any function-oriented data structure or operation.
+#UserFunctor is a base class for any function-oriented class structure or operation.
 #This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
 class UserFunctor(ABC, Datum):
 
