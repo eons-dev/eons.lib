@@ -25,7 +25,8 @@ def test_package_download():
     logging.debug(f'Executor args: {executor.args}')
 
     logging.info(f'Deleting: {executor.args.repo_store}')
-    shutil.rmtree(executor.args.repo_store)
+    if (os.path.exists(executor.args.repo_store)):
+        shutil.rmtree(executor.args.repo_store)
     
     #Make sure test package doesn't exist.
     #package_test is avaliable from infrastructure.tech.
