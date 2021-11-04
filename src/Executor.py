@@ -152,7 +152,7 @@ class Executor(DataContainer, UserFunctor):
                 packageName = f'{prefix}_{registeredName}'
             logging.debug(f'Trying to download {packageName} from repository ({self.args.repo_url})')
             self.DownloadPackage(packageName)
-            registered = self.SelfRegistering(registeredName)
+            registered = SelfRegistering(registeredName)
 
         #still no success.
         #NOTE: UserFunctors are Data, so they have an IsValid() method
