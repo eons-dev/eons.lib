@@ -26,13 +26,17 @@ class Executor(DataContainer, UserFunctor):
 
         super().__init__(name)
 
-        self.defaultRepoDirectory = "./eons/"
-        self.registerDirectories = []
-
+        self.Configure()
         self.argparser = argparse.ArgumentParser(description = descriptionStr)
         self.args = None
         self.extraArgs = None
         self.AddArgs()
+
+    #Configure class defaults.
+    #Override this to customize your Executor.
+    def Configure(self):
+        self.defaultRepoDirectory = "./eons/"
+        self.registerDirectories = []
 
     #Add a place to search for SelfRegistering classes.
     #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
