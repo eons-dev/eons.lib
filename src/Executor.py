@@ -105,7 +105,7 @@ class Executor(DataContainer, UserFunctor):
     #Will refresh registered classes upon success
     #RETURNS void
     #Does not guarantee new classes are made available; errors need to be handled by the caller.
-    def DownloadPackage(self, packageName):
+    def DownloadPackage(self, packageName, registerClasses=True):
 
         url = f'{self.args.repo_url}/download?package_name={packageName}'
 
@@ -140,8 +140,9 @@ class Executor(DataContainer, UserFunctor):
         openArchive.extractall(f'{self.args.repo_store}')
         openArchive.close()
 
-        logging.debug(f'Registering classes in {self.args.repo_store}')
-        self.RegisterAllClassesInDirectory(self.args.repo_store)
+        if (registerClasses):
+            logging.debug(f'Registering classes in {self.args.repo_store}')
+            self.RegisterAllClassesInDirectory(self.args.repo_store)
 
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
     def GetRegistered(self, registeredName, prefix=""):
