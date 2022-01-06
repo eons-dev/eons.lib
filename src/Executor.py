@@ -141,25 +141,34 @@ class Executor(DataContainer, UserFunctor):
         openArchive.close()
 
         if (registerClasses):
-            logging.debug(f'Registering classes in {self.args.repo_store}')
             self.RegisterAllClassesInDirectory(self.args.repo_store)
 
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
     def GetRegistered(self, registeredName, prefix=""):
+
+        #Start by looking at what we have.
         try:
             registered = SelfRegistering(registeredName)
         except Exception as e:
-            if (self.args.no_repo):
-                raise e
-            logging.debug(f'{registeredName} not found.')
-            packageName = registeredName
-            if (prefix):
-                packageName = f'{prefix}_{registeredName}'
-            logging.debug(f'Trying to download {packageName} from repository ({self.args.repo_url})')
-            self.DownloadPackage(packageName)
-            registered = SelfRegistering(registeredName)
 
-        #still no success.
+            #Then try registering what's already downloaded.
+            try:
+                self.RegisterAllClassesInDirectory(self.args.repo_store)
+                registered = SelfRegistering(registeredName)
+            except Exception as e2:
+
+                #If we're not going to attempt a download, fail.
+                if (self.args.no_repo):
+                    raise e2
+
+                logging.debug(f'{registeredName} not found.')
+                packageName = registeredName
+                if (prefix):
+                    packageName = f'{prefix}_{registeredName}'
+                logging.debug(f'Trying to download {packageName} from repository ({self.args.repo_url})')
+                self.DownloadPackage(packageName)
+                registered = SelfRegistering(registeredName)
+
         #NOTE: UserFunctors are Data, so they have an IsValid() method
         if (not registered or not registered.IsValid()):
             logging.error(f'Could not find {registeredName}')
