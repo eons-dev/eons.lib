@@ -26,6 +26,7 @@ class Executor(DataContainer, UserFunctor):
 
         super().__init__(name)
 
+        self.cwd = os.getcwd()
         self.Configure()
         self.argparser = argparse.ArgumentParser(description = descriptionStr)
         self.args = None
@@ -35,13 +36,13 @@ class Executor(DataContainer, UserFunctor):
     #Configure class defaults.
     #Override this to customize your Executor.
     def Configure(self):
-        self.defaultRepoDirectory = "./eons/"
+        self.defaultRepoDirectory = os.path.abspath(os.path.join(self.cwd, "./eons/"))
         self.registerDirectories = []
 
     #Add a place to search for SelfRegistering classes.
     #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
     def RegisterDirectory(self, directory):
-        self.registerDirectories.append(directory)
+        self.registerDirectories.append(os.path.abspath(os.path.join(self.cwd,directory)))
 
     #Global logging config.
     #Override this method to disable or change.
@@ -139,7 +140,8 @@ class Executor(DataContainer, UserFunctor):
         openArchive = ZipFile(packageZip, 'r')
         openArchive.extractall(f'{self.args.repo_store}')
         openArchive.close()
-
+        os.remove(packageZip)
+        
         if (registerClasses):
             self.RegisterAllClassesInDirectory(self.args.repo_store)
 
