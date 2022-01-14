@@ -1,0 +1,27 @@
+{
+  "clear_build_path" : true,
+  "ebbs_next": [
+    {
+      "build" : "py",
+      "build_in" : "generated",
+      "copy" : [
+        {"../src/" : "src/"},
+        {"../inc/" : "inc/"},
+        {"../test/" : "test/"},
+        {"../README.md" : "README.md"},
+        {"../LICENSE" : "LICENSE"}
+      ],
+      "config" : {
+        "author_name" : "eons",
+        "author_email" : "support@eons.llc",
+        "description" : "eons library",
+        "package_url" : "https://github.com/eons-dev/bin_ebbs",
+        "license" : "MIT License",
+        "python_min" : "3.7",
+        "classifiers" : [
+          "Development Status :: 4 - Beta"
+        ]
+      }
+    }
+  ]
+}
