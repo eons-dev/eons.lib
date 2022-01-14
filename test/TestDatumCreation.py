@@ -7,8 +7,8 @@ sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "clas
 
 from SimpleDatum import SimpleDatum
 
-def test_datum_creation_via_self_registering():
-    logging.info("Creating SimpleDatum via self Registration")
+def test_datum_creation_via_this_registering():
+    logging.info("Creating SimpleDatum via this Registration")
     # datum = SelfRegistering("SimpleDatum", name="R4ND0M N4M3") #TODO: How do?
     datum = e.SelfRegistering("SimpleDatum")
     logging.info(f"datum = {datum.__dict__}")

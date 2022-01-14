@@ -5,12 +5,12 @@ import pkgutil
 #Self registration for use with json loading.
 #Any class that derives from SelfRegistering can be instantiated with:
 #   SelfRegistering("ClassName")
-#Based on: https://stackoverflow.com/questions/55973284/how-to-create-self-registering-factory-in-python/55973426
+#Based on: https://stackoverflow.com/questions/55973284/how-to-create-this-registering-factory-in-python/55973426
 class SelfRegistering(object):
 
     class ClassNotFound(Exception): pass
 
-    def __init__(self, *args, **kwargs):
+    def __init__(this, *args, **kwargs):
         #ignore args.
         super().__init__()
 

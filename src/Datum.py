@@ -12,24 +12,24 @@ class Datum(SelfRegistering):
     def __new__(cls, *args, **kwargs):
         return object.__new__(cls)
 
-    def __init__(self, name=INVALID_NAME(), number=0):
+    def __init__(this, name=INVALID_NAME(), number=0):
         # logging.debug("init Datum")
 
         #Names are generally useful.
-        self.name = name
+        this.name = name
 
         #Storing validity as a member makes it easy to generate bad return values (i.e. instead of checking for None) as well as manipulate class (e.g. each analysis step invalidates some class and all invalid class are discarded at the end of analysis).
-        self.valid = True 
+        this.valid = True 
 
     #Override this if you have your own validity checks.
-    def IsValid(self):
-        return self.valid == True
+    def IsValid(this):
+        return this.valid == True
 
     #Sets valid to true
     #Override this if you have members you need to handle with care.
-    def MakeValid(self):
-        self.valid = True
+    def MakeValid(this):
+        this.valid = True
 
     #Sets valid to false.
-    def Invalidate(self):
-        self.valid = False
+    def Invalidate(this):
+        this.valid = False

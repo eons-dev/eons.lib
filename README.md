@@ -36,7 +36,7 @@ In some `MyDatum.py` in a `MyData` directory, you might have:
 import logging
 from eons import Datum
 class MyDatum(Datum): #Datum is a useful child of SelfRegistering
-    def __init__(self, name="only relevant during direct instantiation"):
+    def __init__(this, name="only relevant during direct instantiation"):
         logging.info(f"init MyDatum")
         super().__init__()
 ```

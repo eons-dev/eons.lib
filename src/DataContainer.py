@@ -8,63 +8,63 @@ from .Datum import Datum
 #Each DataContainer is comprised of multiple Data (see Datum.py for more).
 #NOTE: DataContainers are, themselves Data. Thus, you can nest your child classes however you would like.
 class DataContainer(Datum):
-    def __init__(self, name=INVALID_NAME()):
+    def __init__(this, name=INVALID_NAME()):
         super().__init__(name)
-        self.data = []
+        this.data = []
 
     #RETURNS: an empty, invalid Datum.
-    def InvalidDatum(self):
+    def InvalidDatum(this):
         ret = Datum()
         ret.Invalidate()
         return ret
 
     #Sort things! Requires by be a valid attribute of all Data.
-    def SortData(self, by):
-        self.data.sort(key=operator.attrgetter(by))
+    def SortData(this, by):
+        this.data.sort(key=operator.attrgetter(by))
 
     #Adds a Datum to *this
-    def AddDatum(self, datum):
-        self.data.append(datum)
+    def AddDatum(this, datum):
+        this.data.append(datum)
 
     #RETURNS: a Datum with datumAttribute equal to match, an invalid Datum if none found.
-    def GetDatumBy(self, datumAttribute, match):
-        for d in self.data:
+    def GetDatumBy(this, datumAttribute, match):
+        for d in this.data:
             try: #within for loop 'cause maybe there's an issue with only 1 Datum and the rest are fine.
                 if (str(getattr(d, datumAttribute)) == str(match)):
                     return d
             except Exception as e:
-                logging.error(f"{self.name} - {e.message}")
+                logging.error(f"{this.name} - {e.message}")
                 continue
-        return self.InvalidDatum()
+        return this.InvalidDatum()
 
     #RETURNS: a Datum of the given name, an invalid Datum if none found.
-    def GetDatum(self, name):
-        return self.GetDatumBy('name', name)
+    def GetDatum(this, name):
+        return this.GetDatumBy('name', name)
 
     #Removes all Data in toRem from *this.
     #RETURNS: the Data removed
-    def RemoveData(self, toRem):
+    def RemoveData(this, toRem):
         # logging.debug(f"Removing {toRem}")
-        self.data = [d for d in self.data if d not in toRem]
+        this.data = [d for d in this.data if d not in toRem]
         return toRem
 
     #Removes all Data which match toRem along the given attribute
-    def RemoveDataBy(self, datumAttribute, toRem):
-        toRem = [d for d in self.data if str(getattr(d, datumAttribute)) in list(map(str, toRem))]
-        return self.RemoveData(toRem)
+    def RemoveDataBy(this, datumAttribute, toRem):
+        toRem = [d for d in this.data if str(getattr(d, datumAttribute)) in list(map(str, toRem))]
+        return this.RemoveData(toRem)
 
     #Removes all Data in *this except toKeep.
     #RETURNS: the Data removed
-    def KeepOnlyData(self, toKeep):
-        toRem = [d for d in self.data if d not in toKeep]
-        return self.RemoveData(toRem)
+    def KeepOnlyData(this, toKeep):
+        toRem = [d for d in this.data if d not in toKeep]
+        return this.RemoveData(toRem)
 
     #Removes all Data except those that match toKeep along the given attribute
     #RETURNS: the Data removed
-    def KeepOnlyDataBy(self, datumAttribute, toKeep):
+    def KeepOnlyDataBy(this, datumAttribute, toKeep):
         # logging.debug(f"Keeping only class with a {datumAttribute} of {toKeep}")
         # toRem = []
-        # for d in self.class:
+        # for d in this.class:
         #     shouldRem = False
         #     for k in toKeep:
         #         if (str(getattr(d, datumAttribute)) == str(k)):
@@ -75,51 +75,51 @@ class DataContainer(Datum):
         #         toRem.append(d)
         #     else:
         #         logging.debug(f"{k} not found in {d.__dict__}")
-        toRem = [d for d in self.data if str(getattr(d, datumAttribute)) not in list(map(str, toKeep))]
-        return self.RemoveData(toRem)
+        toRem = [d for d in this.data if str(getattr(d, datumAttribute)) not in list(map(str, toKeep))]
+        return this.RemoveData(toRem)
 
     #Removes all Data with the name "INVALID NAME"
     #RETURNS: the removed Data
-    def RemoveAllUnlabeledData(self):
+    def RemoveAllUnlabeledData(this):
         toRem = []
-        for d in self.data:
+        for d in this.data:
             if (d.name =="INVALID NAME"):
                 toRem.append(d)
-        return self.RemoveData(toRem)
+        return this.RemoveData(toRem)
 
     #Removes all invalid Data
     #RETURNS: the removed Data
-    def RemoveAllInvalidData(self):
+    def RemoveAllInvalidData(this):
         toRem = []
-        for d in self.data:
+        for d in this.data:
             if (not d.IsValid()):
                 toRem.append(d)
-        return self.RemoveData(toRem)
+        return this.RemoveData(toRem)
 
     #Removes all Data that have an attribute value relative to target.
     #The given relation can be things like operator.le (i.e. <=)
     #   See https://docs.python.org/3/library/operator.html for more info.
     #If ignoreNames is specified, any Data of those names will be ignored.
     #RETURNS: the Data removed
-    def RemoveDataRelativeToTarget(self, datumAttribute, relation, target, ignoreNames = []):
+    def RemoveDataRelativeToTarget(this, datumAttribute, relation, target, ignoreNames = []):
         try:
             toRem = []
-            for d in self.data:
+            for d in this.data:
                 if (ignoreNames and d.name in ignoreNames):
                     continue
                 if (relation(getattr(d, datumAttribute), target)):
                     toRem.append(d)
-            return self.RemoveData(toRem)
+            return this.RemoveData(toRem)
         except Exception as e:
-            logging.error(f"{self.name} - {e.message}")
+            logging.error(f"{this.name} - {e.message}")
             return []
 
     #Removes any Data that have the same datumAttribute as a previous Datum, keeping only the first.
     #RETURNS: The Data removed
-    def RemoveDuplicateDataOf(self, datumAttribute):
+    def RemoveDuplicateDataOf(this, datumAttribute):
         toRem = [] #list of Data
         alreadyProcessed = [] #list of strings, not whatever datumAttribute is.
-        for d1 in self.data:
+        for d1 in this.data:
             skip = False
             for dp in alreadyProcessed:
                 if (str(getattr(d1, datumAttribute)) == dp):
@@ -127,19 +127,19 @@ class DataContainer(Datum):
                     break
             if (skip):
                 continue
-            for d2 in self.data:
+            for d2 in this.data:
                 if (d1 is not d2 and str(getattr(d1, datumAttribute)) == str(getattr(d2, datumAttribute))):
                     logging.info(f"Removing duplicate Datum {d2} with unique id {getattr(d2, datumAttribute)}")
                     toRem.append(d2)
                     alreadyProcessed.append(str(getattr(d1, datumAttribute)))
-        return self.RemoveData(toRem)
+        return this.RemoveData(toRem)
 
     #Adds all Data from otherDataContainer to *this.
     #If there are duplicate Data identified by the attribute preventDuplicatesOf, they are removed.
     #RETURNS: the Data removed, if any.
-    def ImportDataFrom(self, otherDataContainer, preventDuplicatesOf=None):
-        self.data.extend(otherDataContainer.data);
+    def ImportDataFrom(this, otherDataContainer, preventDuplicatesOf=None):
+        this.data.extend(otherDataContainer.data);
         if (preventDuplicatesOf is not None):
-            return self.RemoveDuplicateDataOf(preventDuplicatesOf)
+            return this.RemoveDuplicateDataOf(preventDuplicatesOf)
         return []
 

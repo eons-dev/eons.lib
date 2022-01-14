@@ -1,8 +1,8 @@
 import eons as e
 
 class TestExecutor(e.Executor):
-    def __init__(self, name="Testing"):
+    def __init__(this, name="Testing"):
         super().__init__(name)
 
-    def AddArgs(self):
+    def AddArgs(this):
         pass
