@@ -106,7 +106,7 @@ class Executor(DataContainer, UserFunctor):
     #Will refresh registered classes upon success
     #RETURNS void
     #Does not guarantee new classes are made available; errors need to be handled by the caller.
-    def DownloadPackage(this, packageName, registerClasses=True):
+    def DownloadPackage(this, packageName, registerClasses=True, createSubDirectory=False):
 
         url = f'{this.args.repo_url}/download?package_name={packageName}'
 
@@ -138,7 +138,10 @@ class Executor(DataContainer, UserFunctor):
 
         logging.debug(f'Extracting {packageZip}')
         openArchive = ZipFile(packageZip, 'r')
-        openArchive.extractall(f'{this.args.repo_store}')
+        extractLoc = this.args.repo_store
+        if (createSubDirectory):
+            extractLoc = os.path.join(extractLoc, packageName)
+        openArchive.extractall(f'{extractLoc}')
         openArchive.close()
         os.remove(packageZip)
         
