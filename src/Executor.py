@@ -2,6 +2,7 @@ import sys, os
 import argparse
 import logging
 import requests
+import jsonpickle
 from zipfile import ZipFile
 from distutils.dir_util import mkpath
 from .Constants import *
@@ -53,6 +54,7 @@ class Executor(DataContainer, UserFunctor):
     #Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
     def AddArgs(this):
         this.argparser.add_argument('--verbose', '-v', action='count', default=0)
+        this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
         this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
         this.argparser.add_argument('--repo-store', type=str, default=this.defaultRepoDirectory, help='file path for storing downloaded packages', dest='repo_store')
         this.argparser.add_argument('--repo-url', type=str, default='https://api.infrastructure.tech/v1/package', help = 'package repository for additional languages', dest='repo_url')
@@ -78,6 +80,15 @@ class Executor(DataContainer, UserFunctor):
         this.argparser.print_help()
         sys.exit()
 
+    #Populate the configuration details for *this.
+    def PopulateConfig(this):
+        this.config = None
+        if (os.path.isfile(this.args.config)):
+            configFile = open(this.args.config, "r")
+            this.config = jsonpickle.decode(configFile.read())
+            configFile.close()
+            logging.debug(f"Got config contents: {this.config}")
+
     #Do the argparse thing.
     def ParseArgs(this):
         this.args, extraArgs = this.argparser.parse_known_args()
@@ -94,6 +105,33 @@ class Executor(DataContainer, UserFunctor):
 
         if (this.args.verbose > 0): #TODO: different log levels with -vv, etc.?
             logging.getLogger().setLevel(logging.DEBUG)
+
+        this.PopulateConfig()
+
+    # Will try to get a value for the given varName from:
+    #    first: this.
+    #    second: the config file, if provided.
+    #    third: the environment.
+    # RETURNS the value of the given variable or None.
+    def FetchVar(this, varName):
+        logging.debug(f"Fetching {varName}...")
+
+        if (hasattr(this, varName)):
+            logging.debug(f"...got {varName} from {this.name}.")
+            return getattr(this, varName)
+
+        if (this.config is not None):
+            for key, val in this.config.items():
+                if (key == varName):
+                    logging.debug(f"...got {varName} from config.")
+                    return val
+
+        envVar = os.getenv(varName)
+        if (envVar is not None):
+            logging.debug(f"...got {varName} from environment".)
+            return envVar
+
+        return None
 
     #UserFunctor required method
     #Override this with your own workflow.
