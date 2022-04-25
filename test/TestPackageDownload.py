@@ -19,10 +19,13 @@ def test_package_download_without_repo():
     # Spoof CLI args.
     executor.args = dotdict({
         'no_repo': True,
+        'verbose': 1,
+        'config': None
+    })
+    executor.extraArgs = {
         'repo_store': executor.defaultRepoDirectory,
         'repo_url': 'https://api.infrastructure.tech/v1/package',
-        'verbose' : 1
-    })
+    }
 
     logging.debug(f"Executor args: {executor.args}")
     executor()
@@ -47,10 +50,13 @@ def test_package_download_with_repo():
     # Spoof CLI args.
     executor.args = dotdict({
         'no_repo': False,
+        'verbose': 1,
+        'config': None
+    })
+    executor.extraArgs = {
         'repo_store': executor.defaultRepoDirectory,
         'repo_url': 'https://api.infrastructure.tech/v1/package',
-        'verbose': 1
-    })
+    }
 
     logging.debug(f"Executor args: {executor.args}")
     executor()
