@@ -94,6 +94,25 @@ class Executor(DataContainer, UserFunctor):
             logging.debug(f"Got config contents: {this.config}")
 
 
+    # Get information for how to download packages.
+    def PopulateRepoDetails(this):
+        details = [
+            "store",
+            "url",
+            "username",
+            "password"
+        ]
+        this.repo = {}
+        for key in details:
+            this.repo[key] = this.Fetch(f"repo_{key}")
+
+        if (this.repo['store'] is None):
+            this.repo['store'] = this.defaultRepoDirectory
+
+        if (this.repo['url'] is None):
+            this.repo['url'] = "https://api.infrastructure.tech/v1/package"
+
+
     #Do the argparse thing.
     #Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ... 
     def ParseArgs(this):
@@ -113,8 +132,6 @@ class Executor(DataContainer, UserFunctor):
 
         if (this.args.verbose > 0): #TODO: different log levels with -vv, etc.?
             logging.getLogger().setLevel(logging.DEBUG)
-
-        this.PopulateConfig()
 
 
     # Will try to get a value for the given varName from:
@@ -147,31 +164,14 @@ class Executor(DataContainer, UserFunctor):
             return envVar
 
         return None
-    
-    
-    #Get information for how to download packages.
-    def PopulateRepoDetails(this):
-        details = [
-            "store",
-            "url",
-            "username",
-            "password"
-        ]
-        this.repo = {}
-        for key in details:
-            this.repo[key] = this.Fetch(f"repo_{key}")
 
-        if (this.repo['store'] is None):
-            this.repo['store'] = this.defaultRepoDirectory
-
-        if (this.repo['url'] is None):
-            this.repo['url'] = "https://api.infrastructure.tech/v1/package"
-        
         
     #UserFunctor required method
     #Override this with your own workflow.
     def UserFunction(this, **kwargs):
         this.ParseArgs() #first, to enable debug and other such settings.
+        this.PopulateConfig()
+        this.PopulateRepoDetails()
         this.RegisterAllClasses()
         this.InitData()
 
@@ -228,12 +228,14 @@ class Executor(DataContainer, UserFunctor):
         #Start by looking at what we have.
         try:
             registered = SelfRegistering(registeredName)
+
         except Exception as e:
 
             #Then try registering what's already downloaded.
             try:
                 this.RegisterAllClassesInDirectory(this.repo['store'])
                 registered = SelfRegistering(registeredName)
+
             except Exception as e2:
 
                 logging.debug(f"{registeredName} not found.")
