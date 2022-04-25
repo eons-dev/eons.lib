@@ -168,7 +168,7 @@ class Executor(DataContainer, UserFunctor):
                 return envVar
 
         logging.debug(f"...could not find {varName}; using default ({default})")
-        return None
+        return default
 
         
     #UserFunctor required method
