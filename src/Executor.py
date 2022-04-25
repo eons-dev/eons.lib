@@ -142,7 +142,7 @@ class Executor(DataContainer, UserFunctor):
 
         envVar = os.getenv(varName)
         if (envVar is not None):
-            logging.debug(f"...got {varName} from environment".)
+            logging.debug(f"...got {varName} from environment")
             return envVar
 
         return None
