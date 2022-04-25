@@ -87,7 +87,7 @@ class Executor(DataContainer, UserFunctor):
     #Populate the configuration details for *this.
     def PopulateConfig(this):
         this.config = None
-        if (os.path.isfile(this.args.config)):
+        if (this.args.config is not None and os.path.isfile(this.args.config)):
             configFile = open(this.args.config, "r")
             this.config = jsonpickle.decode(configFile.read())
             configFile.close()
