@@ -144,19 +144,20 @@ class Executor(DataContainer, UserFunctor):
     #    third: the config file, if provided.
     #    fourth: the environment (if enabled).
     # RETURNS the value of the given variable or None.
-    def Fetch(this, varName, default=None, enableEnvironment=True):
+    def Fetch(this, varName, default=None, enableSelf=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
 
-        if (hasattr(this, varName)):
+        if (enableSelf and hasattr(this, varName)):
             logging.debug(f"...got {varName} from {this.name}.")
             return getattr(this, varName)
 
-        for key, val in this.extraArgs.items():
-            if (key == varName):
-                logging.debug(f"...got {varName} from argument.")
-                return val
+        if (enableArgs):
+            for key, val in this.extraArgs.items():
+                if (key == varName):
+                    logging.debug(f"...got {varName} from argument.")
+                    return val
 
-        if (this.config is not None):
+        if (enableConfig and this.config is not None):
             for key, val in this.config.items():
                 if (key == varName):
                     logging.debug(f"...got {varName} from config.")
