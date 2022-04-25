@@ -236,10 +236,6 @@ class Executor(DataContainer, UserFunctor):
                 registered = SelfRegistering(registeredName)
             except Exception as e2:
 
-                #If we're not going to attempt a download, fail.
-                if (this.args.no_repo):
-                    raise e2
-
                 logging.debug(f"{registeredName} not found.")
                 packageName = registeredName
                 if (prefix):
