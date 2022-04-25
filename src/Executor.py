@@ -100,13 +100,14 @@ class Executor(DataContainer, UserFunctor):
         this.args, extraArgs = this.argparser.parse_known_args()
 
         extraArgsKeys = []
-        for key in range(0, len(extraArgs), 2):
-            key.replace('--', '').replace('-','_')
-            extraArgsKeys.append(extraArgs[key])
+        for index in range(0, len(extraArgs), 2):
+            keyStr = extraArgs[index]
+            keyStr.replace('--', '').replace('-', '_')
+            extraArgsKeys.append(keyStr)
 
         extraArgsValues = []
-        for val in range(1, len(extraArgs), 2):
-            extraArgsValues.append(extraArgs[val])
+        for index in range(1, len(extraArgs), 2):
+            extraArgsValues.append(extraArgs[index])
 
         this.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
 
