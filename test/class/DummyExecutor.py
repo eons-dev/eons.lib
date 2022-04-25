@@ -6,3 +6,6 @@ class DummyExecutor(e.Executor):
 
     def AddArgs(this):
         pass
+
+    def ParseArgs(this):
+        pass
