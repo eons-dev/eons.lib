@@ -87,6 +87,10 @@ class Executor(DataContainer, UserFunctor):
     #Populate the configuration details for *this.
     def PopulateConfig(this):
         this.config = None
+
+        if (this.args.config is None):
+            this.args.config = this.defualtConfigFile
+
         if (this.args.config is not None and os.path.isfile(this.args.config)):
             configFile = open(this.args.config, "r")
             this.config = jsonpickle.decode(configFile.read())
@@ -96,26 +100,20 @@ class Executor(DataContainer, UserFunctor):
 
     # Get information for how to download packages.
     def PopulateRepoDetails(this):
-        details = [
-            "store",
-            "url",
-            "username",
-            "password"
-        ]
+        details = {
+            "store": this.defaultRepoDirectory,
+            "url": "https://api.infrastructure.tech/v1/package",
+            "username": None,
+            "password": None
+        }
         this.repo = {}
 
         if (this.args.no_repo is not None and this.args.no_repo):
-            for key in details:
+            for key, default in details.items():
                 this.repo[key] = None
         else:
-            for key in details:
-                this.repo[key] = this.Fetch(f"repo_{key}")
-
-            if (this.repo['store'] is None):
-                this.repo['store'] = this.defaultRepoDirectory
-
-            if (this.repo['url'] is None):
-                this.repo['url'] = "https://api.infrastructure.tech/v1/package"
+            for key, default in details.items():
+                this.repo[key] = this.Fetch(f"repo_{key}", default=default)
 
 
     #Do the argparse thing.
@@ -143,9 +141,9 @@ class Executor(DataContainer, UserFunctor):
     #    first: this.
     #    second: extra arguments provided to *this.
     #    third: the config file, if provided.
-    #    fourth: the environment.
+    #    fourth: the environment (if enabled).
     # RETURNS the value of the given variable or None.
-    def Fetch(this, varName):
+    def Fetch(this, varName, default=None, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
 
         if (hasattr(this, varName)):
@@ -163,11 +161,13 @@ class Executor(DataContainer, UserFunctor):
                     logging.debug(f"...got {varName} from config.")
                     return val
 
-        envVar = os.getenv(varName)
-        if (envVar is not None):
-            logging.debug(f"...got {varName} from environment")
-            return envVar
+        if (enableEnvironment):
+            envVar = os.getenv(varName)
+            if (envVar is not None):
+                logging.debug(f"...got {varName} from environment")
+                return envVar
 
+        logging.debug(f"...could not find {varName}; using default ({default})")
         return None
 
         
