@@ -3,16 +3,15 @@
   "type": "lib",
   "clear_build_path" : true,
   "build_in" : "out",
-  "ebbs_next": [
+  "next": [
     {
       "build" : "py",
-      "build_in" : "generated",
       "copy" : [
-        {"../src/" : "src/"},
-        {"../inc/" : "inc/"},
-        {"../test/" : "test/"},
-        {"../README.md" : "README.md"},
-        {"../LICENSE" : "LICENSE"}
+        {"../../src/" : "src/"},
+        {"../../inc/" : "inc/"},
+        {"../../test/" : "test/"},
+        {"../../README.md" : "README.md"},
+        {"../../LICENSE" : "LICENSE"}
       ],
       "config" : {
         "author_name" : "eons",
