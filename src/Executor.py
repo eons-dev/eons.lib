@@ -60,7 +60,7 @@ class Executor(DataContainer, UserFunctor):
     def AddArgs(this):
         this.argparser.add_argument('--verbose', '-v', action='count', default=0)
         this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
-
+        this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
     #Create any sub-class necessary for child-operations
     #Does not RETURN anything.
@@ -103,14 +103,19 @@ class Executor(DataContainer, UserFunctor):
             "password"
         ]
         this.repo = {}
-        for key in details:
-            this.repo[key] = this.Fetch(f"repo_{key}")
 
-        if (this.repo['store'] is None):
-            this.repo['store'] = this.defaultRepoDirectory
+        if (this.args.no_repo is not None and this.args.no_repo):
+            for key in details:
+                this.repo[key] = None
+        else:
+            for key in details:
+                this.repo[key] = this.Fetch(f"repo_{key}")
 
-        if (this.repo['url'] is None):
-            this.repo['url'] = "https://api.infrastructure.tech/v1/package"
+            if (this.repo['store'] is None):
+                this.repo['store'] = this.defaultRepoDirectory
+
+            if (this.repo['url'] is None):
+                this.repo['url'] = "https://api.infrastructure.tech/v1/package"
 
 
     #Do the argparse thing.
@@ -181,6 +186,10 @@ class Executor(DataContainer, UserFunctor):
     #RETURNS void
     #Does not guarantee new classes are made available; errors need to be handled by the caller.
     def DownloadPackage(this, packageName, registerClasses=True, createSubDirectory=False):
+
+        if (this.args.no_repo is not None and this.args.no_repo):
+            logging.debug(f"Refusing to download {packageName}; we were told not to use a repository.")
+            return
 
         url = f"{this.repo['url']}/download?package_name={packageName}"
 

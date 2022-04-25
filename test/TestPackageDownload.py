@@ -8,14 +8,15 @@ sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "util
 sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "class"))
 
 from dotdict import dotdict
-from TestExecutor import TestExecutor
+from DummyExecutor import DummyExecutor
 
-#Try downloading a package from the infrastructure repository.
-def test_package_download():
+# Try to get a non-existant SelfRegistering without downloading a package from the infrastructure repository.
+# Should fail.
+def test_package_download_without_repo():
 
-    executor = TestExecutor("Test Package Download")
+    executor = DummyExecutor("Test Package Download")
 
-    #Spoof CLI args.
+    # Spoof CLI args.
     executor.args = dotdict({
         'no_repo': True,
         'repo_store': executor.defaultRepoDirectory,
@@ -23,11 +24,8 @@ def test_package_download():
     })
 
     logging.debug(f"Executor args: {executor.args}")
+    executor()
 
-    logging.info(f"Deleting: {executor.args.repo_store}")
-    if (os.path.exists(executor.args.repo_store)):
-        shutil.rmtree(executor.args.repo_store)
-    
     #Make sure test package doesn't exist.
     #package_test is avaliable from infrastructure.tech.
     with pytest.raises(Exception):
@@ -38,10 +36,26 @@ def test_package_download():
         executor.GetRegistered("test", "package")
         assert(False) # just in case something was missed.
 
-    executor.args.no_repo = False
-    logging.debug(f"Executor args: {executor.args}")
 
-    #Should try to download https://infrastructure.tech/package/package_test and succeed.
+# Try downloading a package from the infrastructure repository.
+# Should try to download https://infrastructure.tech/package/package_test and succeed.
+def test_package_download_with_repo():
+
+    executor = DummyExecutor("Test Package Download")
+
+    # Spoof CLI args.
+    executor.args = dotdict({
+        'repo_store': executor.defaultRepoDirectory,
+        'repo_url': 'https://api.infrastructure.tech/v1/package'
+    })
+
+    logging.debug(f"Executor args: {executor.args}")
+    executor()
+
+    logging.info(f"Deleting: {executor.repo['store']}")
+    if (os.path.exists(executor.repo['store'])):
+        shutil.rmtree(executor.repo['store'])
+
     test = executor.GetRegistered("test", "package")
     assert(test is not None)
     assert(test())
