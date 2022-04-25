@@ -22,9 +22,9 @@ def test_package_download():
         'repo_url': 'https://api.infrastructure.tech/v1/package'
     })
 
-    logging.debug(f'Executor args: {executor.args}')
+    logging.debug(f"Executor args: {executor.args}")
 
-    logging.info(f'Deleting: {executor.args.repo_store}')
+    logging.info(f"Deleting: {executor.args.repo_store}")
     if (os.path.exists(executor.args.repo_store)):
         shutil.rmtree(executor.args.repo_store)
     
@@ -39,7 +39,7 @@ def test_package_download():
         assert(False) # just in case something was missed.
 
     executor.args.no_repo = False
-    logging.debug(f'Executor args: {executor.args}')
+    logging.debug(f"Executor args: {executor.args}")
 
     #Should try to download https://infrastructure.tech/package/package_test and succeed.
     test = executor.GetRegistered("test", "package")

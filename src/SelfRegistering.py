@@ -38,7 +38,7 @@ class SelfRegistering(object):
                 return child
         
         # no subclass with matching classname found (and no default defined)
-        raise SelfRegistering.ClassNotFound(f'No known SelfRegistering class: {classname}')
+        raise SelfRegistering.ClassNotFound(f"No known SelfRegistering class: {classname}")
 
     @staticmethod
     def RegisterAllClassesInDirectory(directory):

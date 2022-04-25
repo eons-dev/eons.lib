@@ -18,6 +18,18 @@ See [ebbs](https://github.com/eons-dev/ebbs) and [esam](https://github.com/eons-
 
 ## Design
 
+### Configuration File and Fetch()
+
+eons provides a simple means of retrieving variables from a wide array of places. When you `Fetch()` a variable, we look through:
+1. The system environment (e.g. `export some_key="some value"`)
+2. The json configuration file supplied with `--config` (or specified by `this.defualtConfigFile` per `Configure()`)
+3. Arguments supplied at the command line (e.g. specifying `--some-key "some value"` makes `Fetch(some_key)` return `"some value"`)
+4. Member variables of the Executor (e.g. `this.some_key = "some value"`)
+
+The higher the number on the above list, the higher the precedence of the search location. For example, member variables will always be returned before values from the environment.
+
+NOTE: The supplied configuration file must contain only valid json.
+
 ### Functors
 
 Functors are classes (objects) that have an invokable `()` operator, which allows you to treat them like functions.
@@ -66,3 +78,5 @@ Online repository settings can be set through:
 ```
 
 You may also publish to the online repository through [ebbs](https://github.com/eons-dev/bin_ebbs)
+
+NOTE: per the above section on the Configuration File, you can set `repo_username` in the environment to avoid passing credentials on the command line, or worse, you can store them in plain text in the configuration file ;)
