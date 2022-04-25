@@ -121,10 +121,13 @@ class Executor(DataContainer, UserFunctor):
     def ParseArgs(this):
         this.args, extraArgs = this.argparser.parse_known_args()
 
+        if (this.args.verbose > 0): #TODO: different log levels with -vv, etc.?
+            logging.getLogger().setLevel(logging.DEBUG)
+
         extraArgsKeys = []
         for index in range(0, len(extraArgs), 2):
             keyStr = extraArgs[index]
-            keyStr.replace('--', '').replace('-', '_')
+            keyStr = keyStr.replace('--', '').replace('-', '_')
             extraArgsKeys.append(keyStr)
 
         extraArgsValues = []
@@ -132,9 +135,7 @@ class Executor(DataContainer, UserFunctor):
             extraArgsValues.append(extraArgs[index])
 
         this.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
-
-        if (this.args.verbose > 0): #TODO: different log levels with -vv, etc.?
-            logging.getLogger().setLevel(logging.DEBUG)
+        logging.debug(f"Got extra arguments: {this.extraArgs}") #has to be after verbosity setting
 
 
     # Will try to get a value for the given varName from:
@@ -169,7 +170,7 @@ class Executor(DataContainer, UserFunctor):
                 return envVar
 
         logging.debug(f"...could not find {varName}; using default ({default})")
-        return None
+        return default
 
         
     #UserFunctor required method

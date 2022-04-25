@@ -1,5 +1,8 @@
 {
+  "name": "eons",
+  "type": "lib",
   "clear_build_path" : true,
+  "build_in" : "out",
   "ebbs_next": [
     {
       "build" : "py",
