@@ -3,6 +3,7 @@ import argparse
 import logging
 import requests
 import jsonpickle
+from tqdm import tqdm
 from zipfile import ZipFile
 from distutils.dir_util import mkpath
 from .Constants import *
@@ -193,46 +194,67 @@ class Executor(DataContainer, UserFunctor):
             logging.debug(f"Refusing to download {packageName}; we were told not to use a repository.")
             return
 
-        url = f"{this.repo['url']}/download?package_name={packageName}"
-
-        auth = None
-        if this.repo['username'] and this.repo['password']:
-            auth = requests.auth.HTTPBasicAuth(this.repo['username'], this.repo['password'])
-
-        packageQuery = requests.get(url, auth=auth)
-
-        if (packageQuery.status_code != 200 or not len(packageQuery.content)):
-            logging.error(f"Unable to download {packageName}")
-            #TODO: raise error?
-            return #let caller decide what to do next.
-
         if (not os.path.exists(this.repo['store'])):
             logging.debug(f"Creating directory {this.repo['store']}")
             mkpath(this.repo['store'])
 
-        packageZip = os.path.join(this.repo['store'], f"{packageName}.zip")
+        packageZipPath = os.path.join(this.repo['store'], f"{packageName}.zip")    
 
-        logging.debug(f"Writing {packageZip}")
-        openPackage = open(packageZip, 'wb+')
-        openPackage.write(packageQuery.content)
-        openPackage.close()
-        if (not os.path.exists(packageZip)):
-            logging.error(f"Failed to create {packageZip}")
+        url = f"{this.repo['url']}/download?package_name={packageName}"
+
+        auth = None
+        if this.repo['username'] and this.repo['password']:
+            auth = requests.auth.HTTPBasicAuth(this.repo['username'], this.repo['password'])   
+
+        headers = {
+            "Connection": "keep-alive",
+        }     
+
+        packageQuery = requests.get(url, auth=auth, headers=headers, stream=True)
+
+        if (packageQuery.status_code != 200):
+            logging.error(f"Unable to download {packageName}")
+            #TODO: raise error?
+            return #let caller decide what to do next.
+
+        packageSize = int(packageQuery.headers.get('content-length', 0))
+        chunkSize = 1024 #1 Kibibyte
+
+        logging.debug(f"Writing {packageZipPath} ({packageSize} bytes)")
+        packageZipContents = open(packageZipPath, 'wb+')
+        
+        progressBar = tqdm(total=packageSize, unit='iB', unit_scale=True)
+
+        for chunk in packageQuery.iter_content(chunkSize):
+            progressBar.update(len(chunk))
+            packageZipContents.write(chunk)
+        
+        progressBar.close()
+
+        if (packageSize and progressBar.n != packageSize):
+            logging.error(f"Package wrote {progressBar.n} / {packageSize} bytes")
+            # TODO: raise error?
+            return
+        
+        packageZipContents.close()
+
+        if (not os.path.exists(packageZipPath)):
+            logging.error(f"Failed to create {packageZipPath}")
             # TODO: raise error?
             return
 
-        logging.debug(f"Extracting {packageZip}")
-        openArchive = ZipFile(packageZip, 'r')
+        logging.debug(f"Extracting {packageZipPath}")
+        openArchive = ZipFile(packageZipPath, 'r')
         extractLoc = this.repo['store']
         if (createSubDirectory):
             extractLoc = os.path.join(extractLoc, packageName)
         openArchive.extractall(f"{extractLoc}")
         openArchive.close()
-        os.remove(packageZip)
+        os.remove(packageZipPath)
         
         if (registerClasses):
             this.RegisterAllClassesInDirectory(this.repo['store'])
-
+            
     #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
     def GetRegistered(this, registeredName, prefix=""):
 
