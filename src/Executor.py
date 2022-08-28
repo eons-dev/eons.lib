@@ -43,6 +43,10 @@ class Executor(DataContainer, UserFunctor):
         this.registerDirectories = []
         this.defualtConfigFile = None
 
+        #Usually, Executors shunt work off to other UserFunctors, so we leave these True unless a child needs to check its work.
+        this.functionSucceeded = True
+        this.rollbackSucceeded = True
+
 
     #Add a place to search for SelfRegistering classes.
     #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
@@ -112,6 +116,7 @@ class Executor(DataContainer, UserFunctor):
         if (this.args.no_repo is not None and this.args.no_repo):
             for key, default in details.items():
                 this.repo[key] = None
+            this.repo['store'] = this.Fetch(f"repo_{key}", default=this.defaultRepoDirectory)
         else:
             for key, default in details.items():
                 this.repo[key] = this.Fetch(f"repo_{key}", default=default)
