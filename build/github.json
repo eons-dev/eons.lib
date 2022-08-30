@@ -58,7 +58,9 @@
       ],
       "build" : "py_publish",
       "build_in" : "./",
-      "config" : {}
+      "config" : {
+        "clear_build_path" : false
+      }
     }
   ]
 }

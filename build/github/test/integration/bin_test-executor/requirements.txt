@@ -1,6 +1,6 @@
+setuptools
 pip
-build
+pytest
 wheel
 twine
-setuptools
-pytest
+build

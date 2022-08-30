@@ -1,1 +1,1 @@
-{"test_path": "./test/integration/", "test_fixture": "repo_connection.json", "name": "eons", "type": "lib", "clear_build_path": false}
+{"clear_build_path": false, "name": "eons", "type": "lib"}

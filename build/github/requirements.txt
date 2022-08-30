@@ -1,9 +1,9 @@
-twine
-build
-tqdm
-jsonpickle
+requests
 pip
 setuptools
-requests
+tqdm
+build
+jsonpickle
 wheel
+twine
 pytest
