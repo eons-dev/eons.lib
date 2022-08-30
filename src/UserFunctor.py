@@ -202,6 +202,7 @@ class UserFunctor(ABC, Datum):
         
         logging.debug(f"{this.name}({kwargs})")
 
+        ret = None
         try:
             this.ParseInitialArgs(**kwargs)
             this.ValidateArgs(**kwargs)
@@ -226,13 +227,13 @@ class UserFunctor(ABC, Datum):
                 logging.error(f"{this.name} failed.")
             
             this.PostCall(**kwargs)
-            return ret
 
         except Exception as error:
             logging.error(f"ERROR: {error}")
             traceback.print_exc()
 
         logging.debug(f">---- {this.name} complete ----<")
+        return ret
 
     ######## START: UTILITIES ########
 
@@ -245,6 +246,7 @@ class UserFunctor(ABC, Datum):
     #Copy a file or folder from source to destination.
     #This really shouldn't be so hard...
     def Copy(this, source, destination):
+        Path(os.path.dirname(os.path.abspath(destination))).mkdir(parents=True, exist_ok=True)
         if (os.path.isfile(source)):
             logging.debug(f"Copying file {source} to {destination}")
             try:
@@ -287,16 +289,18 @@ class UserFunctor(ABC, Datum):
     #RETURN: Return value and, optionally, the output as a list of lines.
     #per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
     def RunCommand(this, command, saveout=False):
+        logging.debug(f"================ Running command: {command} ================")
         p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
         output = []
         while True:
-            line = p.stdout.readline()
+            line = p.stdout.readline().decode('utf8')[:-1]
             if (saveout):
                 output.append(line)
             if (not line):
                 break
-            print(line.decode('utf8')[:-1])  # [:-1] to strip excessive new lines.
+            logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
         
+        logging.debug(f"================ Completed command: {command} ================")
         if (saveout):
             return p.returncode, output
         

@@ -64,6 +64,7 @@ class Executor(DataContainer, UserFunctor):
     #Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
     def AddArgs(this):
         this.argparser.add_argument('--verbose', '-v', action='count', default=0)
+        this.argparser.add_argument('--quiet', '-q', action='count', default=0)
         this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
         this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
@@ -127,8 +128,13 @@ class Executor(DataContainer, UserFunctor):
     def ParseArgs(this):
         this.args, extraArgs = this.argparser.parse_known_args()
 
-        if (this.args.verbose > 0): #TODO: different log levels with -vv, etc.?
+        if (this.args.verbose > 0):
             logging.getLogger().setLevel(logging.DEBUG)
+
+        if (this.args.quiet > 0):
+            logging.getLogger().setLevel(logging.WARNING)
+        elif (this.args.quiet > 1):
+            logging.getLogger().setLevel(logging.ERROR)
 
         extraArgsKeys = []
         for index in range(0, len(extraArgs), 2):
@@ -228,15 +234,19 @@ class Executor(DataContainer, UserFunctor):
         logging.debug(f"Writing {packageZipPath} ({packageSize} bytes)")
         packageZipContents = open(packageZipPath, 'wb+')
         
-        progressBar = tqdm(total=packageSize, unit='iB', unit_scale=True)
+        progressBar = None
+        if (not this.args.quiet):
+            progressBar = tqdm(total=packageSize, unit='iB', unit_scale=True)
 
         for chunk in packageQuery.iter_content(chunkSize):
-            progressBar.update(len(chunk))
             packageZipContents.write(chunk)
+            if (not this.args.quiet):
+                progressBar.update(len(chunk))
         
-        progressBar.close()
+        if (not this.args.quiet):
+            progressBar.close()
 
-        if (packageSize and progressBar.n != packageSize):
+        if (packageSize and not this.args.quiet and progressBar.n != packageSize):
             logging.error(f"Package wrote {progressBar.n} / {packageSize} bytes")
             # TODO: raise error?
             return
