@@ -37,6 +37,9 @@ class UserFunctor(ABC, Datum):
         #0 is invalid; 1 is best; higher numbers are usually worse.
         this.result = 0
 
+        #Whether or not we should pass on exceptions when calls fail.
+        this.raiseExceptions = True
+
         #Ease of use members
         #These can be calculated in UserFunction and Rollback, respectively.
         this.functionSucceeded = False
@@ -45,7 +48,7 @@ class UserFunctor(ABC, Datum):
     #Override this and do whatever!
     #This is purposefully vague.
     @abstractmethod
-    def UserFunction(this, **kwargs):
+    def UserFunction(this):
         raise NotImplementedError 
 
     # Undo any changes made by UserFunction.
@@ -63,18 +66,21 @@ class UserFunctor(ABC, Datum):
     def DidRollbackSucceed(this):
         return this.rollbackSucceeded
 
-    #Grab any known and necessary args from kwargs before any Fetch calls are made.
-    def ParseInitialArgs(this, **kwargs):
+    #Grab any known and necessary args from this.kwargs before any Fetch calls are made.
+    def ParseInitialArgs(this):
         this.os = platform.system()
         if (not isinstance(this, Executor)):
-            if ('executor' in kwargs):
-                this.executor = kwargs.pop('executor')
+            if ('executor' in this.kwargs):
+                this.executor = this.kwargs.pop('executor')
             else:
                 logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
     # Convert Fetched values to their proper type.
     # This can also allow for use of {this.val} expression evaluation.
     def EvaluateToType(this, value, evaluateExpression = False):
+        if (value is None or value == "None"):
+            return None
+
         if (isinstance(value, dict)):
             ret = {}
             for key, value in value.items():
@@ -145,11 +151,17 @@ class UserFunctor(ABC, Datum):
         enableEnvironment=True):
 
         if (enableThis and hasattr(this, varName)):
-            logging.debug("...got {varName} from self ({this.name}).")
+            logging.debug(f"...got {varName} from self ({this.name}).")
             return getattr(this, varName)
 
+        if (enableArgs):
+            for key, val in this.kwargs.items():
+                if (key == varName):
+                    logging.debug(f"...got {varName} from argument.")
+                    return val
+
         if (not hasattr(this, 'executor')):
-            logging.debug(f"... skipping remaining Fetch checks, since 'executor' was not supplied in kwargs.")
+            logging.debug(f"... skipping remaining Fetch checks, since 'executor' was not supplied in this.kwargs.")
             return default
 
         return this.executor.Fetch(varName, default, enableExecutor, enableArgs, enableExecutorConfig, enableEnvironment)
@@ -157,9 +169,9 @@ class UserFunctor(ABC, Datum):
 
     #Override this with any additional argument validation you need.
     #This is called before PreCall(), below.
-    def ValidateArgs(this, **kwargs):
-        # logging.debug(f"kwargs: {kwargs}")
-        # logging.debug(f"required kwargs: {this.requiredKWArgs}")
+    def ValidateArgs(this):
+        # logging.debug(f"this.kwargs: {this.kwargs}")
+        # logging.debug(f"required this.kwargs: {this.requiredKWArgs}")
 
         for prog in this.requiredPrograms:
             if (shutil.which(prog) is None):
@@ -179,7 +191,7 @@ class UserFunctor(ABC, Datum):
             # Nope. Failed.
             errStr = f"{rkw} required but not found."
             logging.error(errStr)
-            raise MissingArgumentError(f"argument {rkw} not found in {kwargs}") #TODO: not formatting string??
+            raise MissingArgumentError(f"argument {rkw} not found in {this.kwargs}") #TODO: not formatting string??
 
         for okw, default in this.optionalKWArgs.items():
             if (hasattr(this, okw)):
@@ -188,27 +200,29 @@ class UserFunctor(ABC, Datum):
             this.Set(okw, this.Fetch(okw, default=default))
 
     #Override this with any logic you'd like to run at the top of __call__
-    def PreCall(this, **kwargs):
+    def PreCall(this):
         pass
 
     #Override this with any logic you'd like to run at the bottom of __call__
-    def PostCall(this, **kwargs):
+    def PostCall(this):
         pass
 
     #Make functor.
     #Don't worry about this; logic is abstracted to UserFunction
     def __call__(this, **kwargs) :
         logging.debug(f"<---- {this.name} ---->")
+
+        this.kwargs = kwargs
         
-        logging.debug(f"{this.name}({kwargs})")
+        logging.debug(f"{this.name}({this.kwargs})")
 
         ret = None
         try:
-            this.ParseInitialArgs(**kwargs)
-            this.ValidateArgs(**kwargs)
-            this.PreCall(**kwargs)
+            this.ParseInitialArgs()
+            this.ValidateArgs()
+            this.PreCall()
             
-            ret = this.UserFunction(**kwargs)
+            ret = this.UserFunction()
 
             if (this.DidUserFunctionSucceed()):
                     this.result = 1
@@ -226,11 +240,17 @@ class UserFunctor(ABC, Datum):
                 this.result = 4
                 logging.error(f"{this.name} failed.")
             
-            this.PostCall(**kwargs)
+            this.PostCall()
 
         except Exception as error:
-            logging.error(f"ERROR: {error}")
-            traceback.print_exc()
+            if (this.raiseExceptions):
+                raise error
+            else:
+                logging.error(f"ERROR: {error}")
+                traceback.print_exc()
+
+        if (this.raiseExceptions and this.result > 2):
+            raise UserFunctorError(f"{this.name} failed with result {this.result}")
 
         logging.debug(f">---- {this.name} complete ----<")
         return ret
@@ -246,7 +266,11 @@ class UserFunctor(ABC, Datum):
     #Copy a file or folder from source to destination.
     #This really shouldn't be so hard...
     def Copy(this, source, destination):
+        source = str(Path(source).resolve())
+        destination = str(Path(destination).resolve())
+        
         Path(os.path.dirname(os.path.abspath(destination))).mkdir(parents=True, exist_ok=True)
+
         if (os.path.isfile(source)):
             logging.debug(f"Copying file {source} to {destination}")
             try:
@@ -288,7 +312,7 @@ class UserFunctor(ABC, Datum):
     #DANGEROUS!!!!!
     #RETURN: Return value and, optionally, the output as a list of lines.
     #per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
-    def RunCommand(this, command, saveout=False):
+    def RunCommand(this, command, saveout=False, raiseExceptions=True):
         logging.debug(f"================ Running command: {command} ================")
         p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
         output = []
@@ -299,6 +323,9 @@ class UserFunctor(ABC, Datum):
             if (not line):
                 break
             logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
+
+        if (p.returncode is not None and p.returncode):
+            raise CommandUnsuccessful(f"Command returned {p.returncode}")
         
         logging.debug(f"================ Completed command: {command} ================")
         if (saveout):

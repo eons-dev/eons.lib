@@ -57,7 +57,7 @@ class Executor(DataContainer, UserFunctor):
     #Global logging config.
     #Override this method to disable or change.
     def SetupLogging(this):
-        logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)-8s] - %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S')
+        logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S')
 
 
     #Adds command line arguments.
@@ -156,10 +156,10 @@ class Executor(DataContainer, UserFunctor):
     #    third: the config file, if provided.
     #    fourth: the environment (if enabled).
     # RETURNS the value of the given variable or None.
-    def Fetch(this, varName, default=None, enableSelf=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
+    def Fetch(this, varName, default=None, enableThis=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
 
-        if (enableSelf and hasattr(this, varName)):
+        if (enableThis and hasattr(this, varName)):
             logging.debug(f"...got {varName} from {this.name}.")
             return getattr(this, varName)
 
@@ -187,7 +187,7 @@ class Executor(DataContainer, UserFunctor):
         
     #UserFunctor required method
     #Override this with your own workflow.
-    def UserFunction(this, **kwargs):
+    def UserFunction(this):
         this.ParseArgs() #first, to enable debug and other such settings.
         this.PopulateConfig()
         this.PopulateRepoDetails()

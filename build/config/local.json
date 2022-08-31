@@ -1,19 +1,8 @@
 {
-  "name": "eons",
-  "type": "lib",
-  "clear_build_path" : true,
-  "build_in" : "github",
   "next": [
     {
       "build" : "py_package",
-      "build_in" : "out",
-      "copy" : [
-        {"../../src/" : "src/"},
-        {"../../inc/" : "inc/"},
-        {"../../test/" : "test/"},
-        {"../../README.md" : "README.md"},
-        {"../../LICENSE" : "LICENSE"}
-      ],
+      "build_in" : "pkg",
       "config" : {
         "clear_build_path" : false,
         "author_name" : "eons",
@@ -50,16 +39,6 @@
             }
           }
         ]
-      }
-    },
-    {
-      "run_when" : [
-        "release"
-      ],
-      "build" : "py_publish",
-      "build_in" : "./",
-      "config" : {
-        "clear_build_path" : false
       }
     }
   ]

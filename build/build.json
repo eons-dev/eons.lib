@@ -1,0 +1,37 @@
+{
+  "name": "eons",
+  "type": "lib",
+  "clear_build_path" : true,
+  "build_in" : "tmp",
+  "next": [
+    {
+      "run_when_none" : [
+        "github"
+      ],
+      "build" : "proxy",
+      "build_in" : "local",
+      "copy" : [
+        {"../../src/" : "local/src/"},
+        {"../../inc/" : "local/inc/"},
+        {"../../test/" : "local/test/"},
+        {"../../README.md" : "local/README.md"},
+        {"../../LICENSE" : "local/LICENSE"}
+      ],
+      "config" : {
+        "clear_build_path" : false,
+        "proxy" : "../config/local.json"
+      }
+    },
+    {
+      "run_when_any" : [
+        "github"
+      ],
+      "build" : "proxy",
+      "build_in" : "github",
+      "config" : {
+        "clear_build_path" : false,
+        "proxy" : "../config/github.json"
+      }
+    }
+  ]
+}

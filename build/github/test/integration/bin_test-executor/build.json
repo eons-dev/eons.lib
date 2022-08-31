@@ -1,1 +1,0 @@
-{"assertions": [{"kind": "command", "check": "output", "command": "testexecutor -q", "expected": ["Hello world!", ""], "comparator": "eq"}], "name": "testexecutor", "type": "bin", "clear_build_path": false}

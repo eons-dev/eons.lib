@@ -1,6 +1,0 @@
-setuptools
-pip
-pytest
-wheel
-twine
-build
