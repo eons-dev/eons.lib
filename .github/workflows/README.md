@@ -14,7 +14,7 @@ Make sure you have a valid EBBS github.json in the build folder of your director
   "next": [
     {
       "build" : "publish",
-      "run_when" : "release",
+      "run_when_any" : "release",
       "copy" : [
         {"../../inc/" : "inc/"}
       ],

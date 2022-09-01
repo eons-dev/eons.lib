@@ -1,10 +1,8 @@
 # eons python framework
 
-![build](https://github.com/eons-dev/eons/actions/workflows/python-package.yml/badge.svg)
-
 Generalized framework for doing python things.
 
-Design in short: Self-registering functors for use with arbitrary data structures.
+Design in short: Self-registering functors downloaded just-in-time for use with arbitrary data structures.
 
 ## Installation
 `pip install eons`
@@ -14,7 +12,9 @@ Design in short: Self-registering functors for use with arbitrary data structure
 This library is intended for consumption by other executables.
 To create your own executable, override `Executor` to add functionality to your program, then create children of `Datum` and `UserFunctor` for adding your own data structures and operations.
 
-See [ebbs](https://github.com/eons-dev/ebbs) and [esam](https://github.com/eons-dev/esam) for examples of how to use this library.
+For example implementations, check out:
+ * [ebbs](https://github.com/eons-dev/bin_ebbs)
+ * [emi](https://github.com/eons-dev/bin_emi)
 
 ## Design
 
@@ -35,11 +35,11 @@ NOTE: The supplied configuration file must contain only valid json.
 Functors are classes (objects) that have an invokable `()` operator, which allows you to treat them like functions.
 eons uses functors to provide input, analysis, and output functionalities, which are made simple by classical inheritance.
 
-For extensibility, all functors take a `**kwargs` argument. This allows you to provide arbitrary key word arguments (e.g. key="value") to your objects.
+For extensibility, all functors take a `**kwargs` argument when called. This allows you to provide arbitrary key word arguments (e.g. key="value") to your objects.
 
 ### Self Registration
 
-Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is done for you on the folder paths detailed above), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
+Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is usually done for you based on the `repo['store']` and `defaultRepoDirectory` members), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
 
 #### Example
 
@@ -80,3 +80,34 @@ Online repository settings can be set through:
 You may also publish to the online repository through [ebbs](https://github.com/eons-dev/bin_ebbs)
 
 NOTE: per the above section on the Configuration File, you can set `repo_username` in the environment to avoid passing credentials on the command line, or worse, you can store them in plain text in the configuration file ;)
+
+## Extension
+
+### User Functor
+
+UserFunctors store all args passed to them in the `kgwargs` member. While you can check this member directly for arguments, `Fetch(...)` is preferred.
+
+When extending `UserFunctor`, please be aware that the following utilities are available to you:
+```python
+#RETURNS: an opened file object for writing.
+#Creates the path if it does not exist.
+def CreateFile(this, file, mode="w+"):
+    ...
+
+#Copy a file or folder from source to destination.
+#This really shouldn't be so hard...
+def Copy(this, source, destination):
+    ...
+
+#Delete a file or folder
+def Delete(this, target):
+    ...
+
+#Run whatever.
+#DANGEROUS!!!!!
+#RETURN: Return value and, optionally, the output as a list of lines.
+#per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
+def RunCommand(this, command, saveout=False, raiseExceptions=True):
+    ...
+```
+The source for these methods is available in UserFunctor.py.
