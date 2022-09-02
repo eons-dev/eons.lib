@@ -314,15 +314,14 @@ class UserFunctor(ABC, Datum):
     #per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
     def RunCommand(this, command, saveout=False, raiseExceptions=True):
         logging.debug(f"================ Running command: {command} ================")
-        p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
+        p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True, bufsize=1)
         output = []
-        while True:
+        while p.poll() is None:
             line = p.stdout.readline().decode('utf8')[:-1]
             if (saveout):
                 output.append(line)
-            if (not line):
-                break
-            logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
+            if (line):
+                logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
 
         if (p.returncode is not None and p.returncode):
             raise CommandUnsuccessful(f"Command returned {p.returncode}")
