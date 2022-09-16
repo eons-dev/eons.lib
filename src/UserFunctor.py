@@ -140,7 +140,7 @@ class UserFunctor(ABC, Datum):
     #    first: this
     #    second: the local config file
     #    third: the executor (args > config > environment)
-    # RETURNS the value of the given variable or None.
+    # RETURNS the value of the given variable or default.
     def Fetch(this,
         varName,
         default=None,
@@ -265,8 +265,13 @@ class UserFunctor(ABC, Datum):
 
     #Copy a file or folder from source to destination.
     #This really shouldn't be so hard...
-    def Copy(this, source, destination):
-        source = str(Path(source).resolve())
+    #root allows us to interpret '/' as something other than the top of the filesystem.
+    def Copy(this, source, destination, root='/'):
+        if (source.startswith('/')):
+            source = str(Path(root).joinpath(source).resolve())
+        else:
+            source = str(Path(source).resolve())
+        
         destination = str(Path(destination).resolve())
         
         Path(os.path.dirname(os.path.abspath(destination))).mkdir(parents=True, exist_ok=True)

@@ -155,7 +155,7 @@ class Executor(DataContainer, UserFunctor):
     #    second: extra arguments provided to *this.
     #    third: the config file, if provided.
     #    fourth: the environment (if enabled).
-    # RETURNS the value of the given variable or None.
+    # RETURNS the value of the given variable or default.
     def Fetch(this, varName, default=None, enableThis=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
 

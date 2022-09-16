@@ -67,4 +67,5 @@ def test_package_download_with_repo():
 
     test = executor.GetRegistered("test", "package")
     assert(test is not None)
-    assert(test())
+    test(executor=executor)
+    assert(test.result == 1)
