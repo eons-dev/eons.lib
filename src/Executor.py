@@ -184,13 +184,17 @@ class Executor(DataContainer, UserFunctor):
         logging.debug(f"...could not find {varName}; using default ({default})")
         return default
 
+
+    #UserFunctor method.
+    #We have to ParseArgs() here in order for other Executors to use ____KWArgs...
+    def ParseInitialArgs(this):
+        this.ParseArgs() #first, to enable debug and other such settings.
+        this.PopulateConfig()
+        this.PopulateRepoDetails()
         
     #UserFunctor required method
     #Override this with your own workflow.
     def UserFunction(this):
-        this.ParseArgs() #first, to enable debug and other such settings.
-        this.PopulateConfig()
-        this.PopulateRepoDetails()
         this.RegisterAllClasses()
         this.InitData()
 
