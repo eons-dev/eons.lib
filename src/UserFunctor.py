@@ -294,6 +294,8 @@ class UserFunctor(ABC, Datum):
                 for error in errors:
                     src, dst, msg = error
                     logging.debug(f"{msg}")
+        else:
+            logging.error(f"Could not find source to copy: {source}")
 
     #Delete a file or folder
     def Delete(this, target):
@@ -319,7 +321,7 @@ class UserFunctor(ABC, Datum):
     #per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
     def RunCommand(this, command, saveout=False, raiseExceptions=True):
         logging.debug(f"================ Running command: {command} ================")
-        p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True, bufsize=1)
+        p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
         output = []
         while p.poll() is None:
             line = p.stdout.readline().decode('utf8')[:-1]
