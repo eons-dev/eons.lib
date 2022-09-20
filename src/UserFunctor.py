@@ -268,7 +268,7 @@ class UserFunctor(ABC, Datum):
     #root allows us to interpret '/' as something other than the top of the filesystem.
     def Copy(this, source, destination, root='/'):
         if (source.startswith('/')):
-            source = str(Path(root).joinpath(source).resolve())
+            source = str(Path(root).joinpath(source[1:]).resolve())
         else:
             source = str(Path(source).resolve())
         
