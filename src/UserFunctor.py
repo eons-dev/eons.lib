@@ -19,10 +19,16 @@ class UserFunctor(ABC, Datum):
         #All necessary args that *this cannot function without.
         this.requiredKWArgs = []
 
+        #Static arguments are Fetched when *this is first called and never again.
+        #All static arguments are required.
+        this.staticKWArgs = []
+        this.staticKWArgsValid = False
+
         #For optional args, supply the arg name as well as a default value.
         this.optionalKWArgs = {}
 
         #All external dependencies *this relies on (binaries that can be found in PATH).
+        #These are treated as static args (see above).
         this.requiredPrograms = []
 
         #For converting config value names.
@@ -173,11 +179,28 @@ class UserFunctor(ABC, Datum):
         # logging.debug(f"this.kwargs: {this.kwargs}")
         # logging.debug(f"required this.kwargs: {this.requiredKWArgs}")
 
-        for prog in this.requiredPrograms:
-            if (shutil.which(prog) is None):
-                errStr = f"{prog} required but not found in path."
+        if (not this.staticKWArgsValid):
+            for prog in this.requiredPrograms:
+                if (shutil.which(prog) is None):
+                    errStr = f"{prog} required but not found in path."
+                    logging.error(errStr)
+                    raise UserFunctorError(errStr)
+
+            for skw in this.staticKWArgs:
+                if (hasattr(this, skw)): #only in the case of children.
+                    continue
+
+                fetched = this.Fetch(skw)
+                if (fetched is not None):
+                    this.Set(skw, fetched)
+                    continue
+
+                # Nope. Failed.
+                errStr = f"{skw} required but not found."
                 logging.error(errStr)
-                raise UserFunctorError(errStr)
+                raise MissingArgumentError(f"argument {skw} not found in {this.kwargs}") #TODO: not formatting string??
+
+            this.staticKWArgsValid = True
 
         for rkw in this.requiredKWArgs:
             if (hasattr(this, rkw)):
