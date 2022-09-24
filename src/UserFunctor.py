@@ -177,7 +177,7 @@ class UserFunctor(ABC, Datum):
             if (shutil.which(prog) is None):
                 errStr = f"{prog} required but not found in path."
                 logging.error(errStr)
-                raise BuildError(errStr)
+                raise UserFunctorError(errStr)
 
         for rkw in this.requiredKWArgs:
             if (hasattr(this, rkw)):

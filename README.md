@@ -13,6 +13,7 @@ This library is intended for consumption by other executables.
 To create your own executable, override `Executor` to add functionality to your program, then create children of `Datum` and `UserFunctor` for adding your own data structures and operations.
 
 For example implementations, check out:
+ * [apie](https://github.com/eons-dev/bin_apie)
  * [ebbs](https://github.com/eons-dev/bin_ebbs)
  * [emi](https://github.com/eons-dev/bin_emi)
 
@@ -29,6 +30,14 @@ eons provides a simple means of retrieving variables from a wide array of places
 The higher the number on the above list, the higher the precedence of the search location. For example, member variables will always be returned before values from the environment.
 
 NOTE: The supplied configuration file must contain only valid json.
+
+### GetRegistered()
+
+In addition to dynamically Fetch()ing variables, eons provides a means of dynamically providing instances of classes by name. These classes can be stored on the filesystem or online.
+
+Additionally, when provisioning SelfRegistering classes, both python package and other SelfRegistering class dependencies will be resolved. This means that, in the course of using this library, your system may be changed in order to provide the requested functionality.
+
+Keep reading for more details.
 
 ### Functors
 
@@ -82,6 +91,8 @@ You may also publish to the online repository through [ebbs](https://github.com/
 NOTE: per the above section on the Configuration File, you can set `repo_username` in the environment to avoid passing credentials on the command line, or worse, you can store them in plain text in the configuration file ;)
 
 ## Extension
+
+When extending a program that derives from eons, defer to that program's means of extension. However, the following utilities may greatly aid in standardizing downstream code.
 
 ### User Functor
 

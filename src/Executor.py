@@ -78,6 +78,8 @@ class Executor(DataContainer, UserFunctor):
     def RegisterAllClasses(this):
         for d in this.registerDirectories:
             this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
+        this.RegisterAllClassesInDirectory(this.repo['store'])
+
 
 
     #Something went wrong, let's quit.
@@ -274,34 +276,103 @@ class Executor(DataContainer, UserFunctor):
         if (registerClasses):
             this.RegisterAllClassesInDirectory(this.repo['store'])
             
-    #RETURNS and instance of a Datum, UserFunctor, etc. which has been discovered by a prior call of RegisterAllClassesInDirectory()
-    def GetRegistered(this, registeredName, prefix=""):
+    #RETURNS and instance of a Datum, UserFunctor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
+    #Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
+    #Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
+    def GetRegistered(this,
+        registeredName,
+        prefix="",
+        downloadIfNotFound=True,
+        resolveDependencies=True,
+        attemptedResolutions={}):
 
         #Start by looking at what we have.
         try:
             registered = SelfRegistering(registeredName)
+        
+        #ImportErrors occur when modules use python packages that aren't installed.
+        except ImportError as ie:
+            dependency = str(ie)[17:-1] #No module named '...'
 
-        except Exception as e:
+            if (not resolveDependencies):
+                raise Exception(f"Could not meet all required dependencies for {registeredName}; missing {dependency}")
 
-            #Then try registering what's already downloaded.
-            try:
-                this.RegisterAllClassesInDirectory(this.repo['store'])
-                registered = SelfRegistering(registeredName)
+            if ('ImportError' not in attemptedResolutions):
+                attemptedResolutions.update({'ImportError': []})
+                        
+            if (dependency in attemptedResolutions['ImportError']):
+                raise Exception(f"Failed to resolve dependency: {dependency}; ImportError: {ie}")
+ 
+            #install the python module
+            this.RunCommand(f"{sys.executable} -m pip install {dependency}")
 
-            except Exception as e2:
+            attemptedResolutions['ImportError'].append(dependency)
 
-                logging.debug(f"{registeredName} not found.")
-                packageName = registeredName
-                if (prefix):
-                    packageName = f"{prefix}_{registeredName}"
-                logging.debug(f"Trying to download {packageName} from repository ({this.repo['url']})")
-                this.DownloadPackage(packageName)
-                registered = SelfRegistering(registeredName)
+            return this.GetRegistered(
+                registeredName,
+                prefix,
+                downloadIfNotFound,
+                resolveDependencies,
+                attemptedResolutions
+            )
+
+        #NameErrors occur when a module derives from or otherwise uses another module which has not been registered.
+        except NameError as ne: 
+            dependency = str(ne)[6:-16] #name '...' is not defined
+
+            if (not resolveDependencies):
+                raise Exception(f"Could not meet all required dependencies for {registeredName}; got NameError: {str(ne)}")
+
+            if ('NameError' not in attemptedResolutions):
+                attemptedResolutions.update({'NameError': []})
+                        
+            if (dependency in attemptedResolutions['NameError']):
+                raise Exception(f"Failed to resolve dependency: {dependency}; NameError: {ne}")
+ 
+            #Grab the eons module.
+            #NOTE: The prefix must be the same as the package we're trying to resolve dependencies for.
+            this.GetRegistered(this, dependency, prefix, downloadIfNotFound, resolveDependencies, {})
+
+            attemptedResolutions['NameError'].append(dependency)
+
+            return this.GetRegistered(
+                registeredName,
+                prefix,
+                downloadIfNotFound,
+                resolveDependencies,
+                attemptedResolutions
+            )
+
+        #ClassNotFound errors occur when there is no SelfRegistering class with the given name.
+        except SelfRegistering.ClassNotFound as ce:
+
+            if (not downloadIfNotFound):
+                raise Exception(f"Could not find {registeredName}; got ClassNotFound: {str(ce)}")
+
+            if ('ClassNotFound' not in attemptedResolutions):
+                attemptedResolutions.update('ClassNotFound': {})
+
+            if (registeredName not in attemptedResolutions['ClassNotFound']):
+                raise Exception(f"Failed to obtain {registeredName}; got ClassNotFound: {str(ce)}")
+
+            packageName = registeredName
+            if (prefix):
+                packageName = f"{prefix}_{registeredName}"
+            logging.debug(f"Trying to download {packageName} from repository ({this.repo['url']})")
+            this.DownloadPackage(packageName)
+
+            return this.GetRegistered(
+                registeredName,
+                prefix,
+                downloadIfNotFound,
+                resolveDependencies,
+                attemptedResolutions
+            )
 
         #NOTE: UserFunctors are Data, so they have an IsValid() method
         if (not registered or not registered.IsValid()):
-            logging.error(f"Could not find {registeredName}")
-            raise Exception(f"Could not get registered class for {registeredName}")
+            logging.error(f"No valid object: {registeredName}")
+            raise Exception(f"No valid object: {registeredName}")
 
-        return registered
+            return registered
 
