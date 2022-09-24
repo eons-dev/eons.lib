@@ -22,16 +22,19 @@ class SelfRegistering(object):
             for subclass in subclass.GetSubclasses():
                 yield subclass
 
-    @staticmethod
+    @classmethod
     def GetClass(cls, classname):
         for subclass in cls.GetSubclasses():
             if subclass.__name__ == classname:
-                return subclass                
+                return subclass
+
+        # no subclass with matching classname found (and no default defined)
+        raise SelfRegistering.ClassNotFound(f"No known SelfRegistering class: {classname}")            
 
     #TODO: How do we pass args to the subsequently called __init__()?
     def __new__(cls, classname, *args, **kwargs):
-        toNew = GetClass(classname)
-        logging.debug(f"Creating new {subclass.__name__}")
+        toNew = cls.GetClass(classname)
+        logging.debug(f"Creating new {toNew.__name__}")
 
         # Using "object" base class method avoids recursion here.
         child = object.__new__(toNew)
@@ -42,9 +45,6 @@ class SelfRegistering(object):
 
         return child
         
-        # no subclass with matching classname found (and no default defined)
-        raise SelfRegistering.ClassNotFound(f"No known SelfRegistering class: {classname}")
-
     @staticmethod
     def RegisterAllClassesInDirectory(directory):
         logging.debug(f"Loading SelfRegistering classes in {directory}")

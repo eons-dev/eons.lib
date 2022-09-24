@@ -350,9 +350,9 @@ class Executor(DataContainer, UserFunctor):
                 raise Exception(f"Could not find {registeredName}; got ClassNotFound: {str(ce)}")
 
             if ('ClassNotFound' not in attemptedResolutions):
-                attemptedResolutions.update('ClassNotFound': {})
+                attemptedResolutions.update({'ClassNotFound': []})
 
-            if (registeredName not in attemptedResolutions['ClassNotFound']):
+            if (registeredName in attemptedResolutions['ClassNotFound']):
                 raise Exception(f"Failed to obtain {registeredName}; got ClassNotFound: {str(ce)}")
 
             packageName = registeredName
@@ -374,5 +374,5 @@ class Executor(DataContainer, UserFunctor):
             logging.error(f"No valid object: {registeredName}")
             raise Exception(f"No valid object: {registeredName}")
 
-            return registered
+        return registered
 
