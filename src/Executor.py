@@ -119,7 +119,7 @@ class Executor(DataContainer, UserFunctor):
         if (this.args.no_repo is not None and this.args.no_repo):
             for key, default in details.items():
                 this.repo[key] = None
-            this.repo['store'] = this.Fetch(f"repo_{key}", default=this.defaultRepoDirectory)
+            this.repo['store'] = this.Fetch(f"repo_store", default=this.defaultRepoDirectory)
         else:
             for key, default in details.items():
                 this.repo[key] = this.Fetch(f"repo_{key}", default=default)
