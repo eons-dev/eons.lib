@@ -1,7 +1,7 @@
 import pytest
 import logging
 import sys, os
-import eons as e
+import eons
 import shutil
 
 sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "util"))
@@ -22,10 +22,10 @@ def test_package_download_without_repo():
         'verbose': 1,
         'config': None
     })
-    executor.extraArgs = {
-        'repo_store': executor.defaultRepoDirectory,
-        'repo_url': 'https://api.infrastructure.tech/v1/package',
-    }
+    # executor.extraArgs = {
+    #     'repo_store': executor.defaultRepoDirectory,
+    #     'repo_url': 'https://api.infrastructure.tech/v1/package',
+    # }
 
     logging.debug(f"Executor args: {executor.args}")
     executor()

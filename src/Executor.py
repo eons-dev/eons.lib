@@ -12,6 +12,51 @@ from .DataContainer import DataContainer
 from .UserFunctor import UserFunctor
 from .SelfRegistering import SelfRegistering
 
+#This needs to be recursive, so rather than having the recoverable decorator call or decorate itself, we just break the logic into this separate method.
+def recoverable_implementation(executor, function, lastError, *args, **kwargs):
+    try:
+        return function(executor, *args, **kwargs)
+    except FailedErrorResolution as fatal:
+        raise fatal
+    except Exception as e:
+        if (not executor.resolveErrors):
+            raise e
+
+        #If we already tried handling this error for this function call, something is wrong. abort.
+        if (lastError and lastError == e):
+            raise FailedErrorResolution(f"Error could not be resolved: {lastError}")
+
+        #ResolveError should be the only method which adds to executor.errorResolutionStack.
+        #ResolveError is itself @recoverable.
+        #So, each time we hit this point, we should also hit a corresponding ClearErrorResolutionStack() call. 
+        #If we do not, an exception is passed to the caller; if we do, the stack will be cleared upon the last resolution.
+        executor.errorRecursionDepth = executor.errorRecursionDepth + 1
+
+        for i, res in enumerate(executor.resolveErrorsWith):
+
+            executor.ResolveError(e, i) #attempt to resolve the issue; might cause us to come back here with a new error.
+            try:
+                ret = function(executor, *args, **kwargs)
+                executor.ClearErrorResolutionStack() #success!
+                return ret
+            except:
+                #Resolution failed. That's okay. Let's try the next.
+                #Not all ResolveErrors will apply to all errors, so we may have to try a few before we get one that works.
+                pass
+
+            # We failed to resolve the error. Die
+            raise FailedErrorResolution(f"Tried and failed to resolve: {e}")
+        else:
+            raise e
+
+#Recursive function meant to be used as a decorator.
+#Decorating another function with this method will engage the error recovery system provided by *this.
+#For more info, see ResolveError, below.
+def recoverable(function):
+    def method(executor, *args, **kwargs):
+        return recoverable_implementation(executor, function, None, *args, **kwargs)
+    return method
+
 #Executor: a base class for user interfaces.
 #An Executor is a functor and can be executed as such.
 #For example
@@ -23,25 +68,6 @@ from .SelfRegistering import SelfRegistering
 #   myprogram()
 #NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, UserFunctor):
-
-    #Recursive function meant to be used as a decorator.
-    #Decorating another function with this method will engage the error recovery system provided by *this.
-    #For more info, see ResolveError, below.
-    def recoverable(func):
-        def method(this):
-            try:
-                ret = this.func()
-                this.ResetResolutionsAttempted() #success!
-                return ret
-            except FailedErrorResolution as fatal:
-                raise fatal
-            except Exception as e:
-                if (this.resolveErrors):
-                    this.ResolveError(e) #Resolve the issue.
-                    return this.recoverable(func) #Try again.
-                else:
-                    raise e
-        return method
             
 
     def __init__(this, name=INVALID_NAME(), descriptionStr="eons python framework. Extend as thou wilt."):
@@ -50,7 +76,8 @@ class Executor(DataContainer, UserFunctor):
         super().__init__(name)
 
         this.resolveErrors = True
-        this.ResetresolutionsAttempted()
+        this.errorRecursionDepth = 0
+        this.errorResolutionStack = {}
         this.resolveErrorsWith = [ #order matters: first is first.
             'install_from_repo',
             'install_with_pip'
@@ -63,11 +90,18 @@ class Executor(DataContainer, UserFunctor):
         this.extraArgs = None
         this.AddArgs()
 
+        #Force this to run early. Otherwise we might end up in infinite loops and segfault.
+        this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
 
-    #this.resolutionsAttempted are whatever we've tried to do to fix whatever our problem is.
+
+    #this.errorResolutionStack are whatever we've tried to do to fix whatever our problem is.
     #This method resets our attempts to remove stale data.
-    def ResetResolutionsAttempted(this):
-        this.resolutionsAttempted = {}
+    def ClearErrorResolutionStack(this):
+        if (this.errorRecursionDepth):
+            this.errorRecursionDepth = this.errorRecursionDepth - 1
+        
+        if (not this.errorRecursionDepth):
+            this.errorResolutionStack = {}
 
     #Configure class defaults.
     #Override this to customize your Executor.
@@ -109,7 +143,6 @@ class Executor(DataContainer, UserFunctor):
 
     #Register all classes in each directory in this.registerDirectories
     def RegisterAllClasses(this):
-        this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
         for d in this.registerDirectories:
             this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
         this.RegisterAllClassesInDirectory(this.repo['store'])
@@ -153,7 +186,7 @@ class Executor(DataContainer, UserFunctor):
         if (this.args.no_repo is not None and this.args.no_repo):
             for key, default in details.items():
                 this.repo[key] = None
-            this.repo['store'] = this.Fetch(f"repo_store", default=this.defaultRepoDirectory)
+            this.repo['store'] = this.Fetch("repo_store", default=this.defaultRepoDirectory)
         else:
             for key, default in details.items():
                 this.repo[key] = this.Fetch(f"repo_{key}", default=default)
@@ -200,13 +233,13 @@ class Executor(DataContainer, UserFunctor):
             logging.debug(f"...got {varName} from {this.name}.")
             return getattr(this, varName)
 
-        if (enableArgs):
+        if (enableArgs and this.extraArgs):
             for key, val in this.extraArgs.items():
                 if (key == varName):
                     logging.debug(f"...got {varName} from argument.")
                     return val
 
-        if (enableConfig and this.config is not None):
+        if (enableConfig and this.config):
             for key, val in this.config.items():
                 if (key == varName):
                     logging.debug(f"...got {varName} from config.")
@@ -329,7 +362,10 @@ class Executor(DataContainer, UserFunctor):
             registered = SelfRegistering(registeredName)
         except Exception as e:
             #We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
-            raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {prefix}_{registeredName}")
+            packageName = registeredName
+            if (prefix):
+                packageName = f"{prefix}_{registeredName}"
+            raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
         #NOTE: UserFunctors are Data, so they have an IsValid() method
         if (not registered or not registered.IsValid()):
@@ -356,10 +392,11 @@ class Executor(DataContainer, UserFunctor):
 
 
     #Uses the ResolveError UserFunctors to process any errors.
-    def ResolveError(this, error):
-        for res in this.resolveErrorsWith:
-            try:
-                resolve = this.GetRegistered(res, "resolve") #Okay to resolve errors for error resolvers.
-                this.resolutionsAttempted = resolve(executor=this, error=error)
-            except Exception as e:
-                this.ResolveError(e)
+    @recoverable
+    def ResolveError(this, error, attemptResolution):
+        if (attemptResolution >= len(this.resolveErrorsWith)):
+            raise FailedErrorResolution(f"{this.name} does not have {attemptResolution} resolutions to fix this error: {error} (it has {len(this.resolveErrorsWith)})")
+
+        resolve = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") #Okay to resolve errors for error resolvers.
+        this.errorResolutionStack = resolve(executor=this, error=error)
+

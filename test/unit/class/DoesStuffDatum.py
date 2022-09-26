@@ -1,8 +1,8 @@
 import sys, os, logging
-import eons as e
+import eons
 
-class DoesStuffDatum(e.Datum):
-    def __init__(this, name=e.INVALID_NAME()):
+class DoesStuffDatum(eons.Datum):
+    def __init__(this, name=eons.INVALID_NAME()):
         logging.info(f"init DoesStuffDatum")
         super().__init__()
 

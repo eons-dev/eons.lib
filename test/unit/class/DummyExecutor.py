@@ -1,6 +1,6 @@
-import eons as e
+import eons
 
-class DummyExecutor(e.Executor):
+class DummyExecutor(eons.Executor):
     def __init__(this, name="Testing"):
         super().__init__(name)
 

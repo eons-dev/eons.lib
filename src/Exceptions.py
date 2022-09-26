@@ -17,7 +17,10 @@ class CommandUnsuccessful(UserFunctorError, metaclass=ActualType):
 
 
 
-class FailedErrorResolution(Exception, metaclass=ActualType):
+class ErrorResolutionError(Exception, metaclass=ActualType):
+    pass
+
+class FailedErrorResolution(ErrorResolutionError, metaclass=ActualType):
     pass
 
 
@@ -42,3 +45,4 @@ class Fatal(Exception, metaclass=ActualType):
     pass
 
 class FatalCannotExecute(Fatal, metaclass=ActualType):
+    pass

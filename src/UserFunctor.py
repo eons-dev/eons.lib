@@ -265,11 +265,11 @@ class UserFunctor(ABC, Datum):
             
             this.PostCall()
 
-        except Exception as error:
+        except Exception as e:
             if (this.raiseExceptions):
-                raise error
+                raise e
             else:
-                logging.error(f"ERROR: {error}")
+                logging.error(f"ERROR: {e}")
                 traceback.print_exc()
 
         if (this.raiseExceptions and this.result > 2):
