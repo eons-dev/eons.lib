@@ -1,6 +1,7 @@
 import os, sys
 import logging
 import pkgutil
+from .Exceptions import *
 
 #Self registration for use with json loading.
 #Any class that derives from SelfRegistering can be instantiated with:
@@ -29,7 +30,7 @@ class SelfRegistering(object):
                 return subclass
 
         # no subclass with matching classname found (and no default defined)
-        raise SelfRegistering.ClassNotFound(f"No known SelfRegistering class: {classname}")            
+        raise ClassNotFound(f"No known SelfRegistering class: {classname}")            
 
     #TODO: How do we pass args to the subsequently called __init__()?
     def __new__(cls, classname, *args, **kwargs):

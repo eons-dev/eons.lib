@@ -7,7 +7,7 @@ from subprocess import Popen, PIPE, STDOUT
 from abc import ABC, abstractmethod
 from .Constants import *
 from .Datum import Datum
-from .Errors import *
+from .Exceptions import *
 
 #UserFunctor is a base class for any function-oriented class structure or operation.
 #This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
