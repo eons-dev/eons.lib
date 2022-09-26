@@ -53,4 +53,7 @@ class SelfRegistering(object):
         for importer, file, _ in pkgutil.iter_modules([directory]):
             logging.debug(f"Found {file} with {importer}")
             if file not in sys.modules and file != 'main':
-                module = importer.find_module(file).load_module(file)
+                module = importer.find_module(file).exec_module(file)
+
+        # enable importing and inheritance for SelfRegistering classes
+        sys.path.append(directory)

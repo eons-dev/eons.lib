@@ -24,10 +24,37 @@ from .SelfRegistering import SelfRegistering
 #NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, UserFunctor):
 
+    #Recursive function meant to be used as a decorator.
+    #Decorating another function with this method will engage the error recovery system provided by *this.
+    #For more info, see ResolveError, below.
+    def recoverable(func):
+        def method(this):
+            try:
+                ret = this.func()
+                this.ResetResolutionsAttempted() #success!
+                return ret
+            except FailedErrorResolution as fatal:
+                raise fatal
+            except Exception as e:
+                if (this.resolveErrors):
+                    this.ResolveError(e) #Resolve the issue.
+                    return this.recoverable(func) #Try again.
+                else:
+                    raise e
+        return method
+            
+
     def __init__(this, name=INVALID_NAME(), descriptionStr="eons python framework. Extend as thou wilt."):
         this.SetupLogging()
 
         super().__init__(name)
+
+        this.resolveErrors = True
+        this.ResetresolutionsAttempted()
+        this.resolveErrorsWith = [ #order matters: first is first.
+            'install_from_repo',
+            'install_with_pip'
+        ]
 
         this.cwd = os.getcwd()
         this.Configure()
@@ -36,6 +63,11 @@ class Executor(DataContainer, UserFunctor):
         this.extraArgs = None
         this.AddArgs()
 
+
+    #this.resolutionsAttempted are whatever we've tried to do to fix whatever our problem is.
+    #This method resets our attempts to remove stale data.
+    def ResetResolutionsAttempted(this):
+        this.resolutionsAttempted = {}
 
     #Configure class defaults.
     #Override this to customize your Executor.
@@ -77,6 +109,7 @@ class Executor(DataContainer, UserFunctor):
 
     #Register all classes in each directory in this.registerDirectories
     def RegisterAllClasses(this):
+        this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
         for d in this.registerDirectories:
             this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
         this.RegisterAllClassesInDirectory(this.repo['store'])
@@ -159,6 +192,7 @@ class Executor(DataContainer, UserFunctor):
     #    third: the config file, if provided.
     #    fourth: the environment (if enabled).
     # RETURNS the value of the given variable or default.
+    @recoverable
     def Fetch(this, varName, default=None, enableThis=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
 
@@ -206,16 +240,17 @@ class Executor(DataContainer, UserFunctor):
     #Will refresh registered classes upon success
     #RETURNS void
     #Does not guarantee new classes are made available; errors need to be handled by the caller.
+    @recoverable
     def DownloadPackage(this,
         packageName,
         registerClasses=True,
-        createSubDirectory=False,
-        resolveDependencies=True,
-        attemptedResolutions={}):
+        createSubDirectory=False):
 
         if (this.args.no_repo is not None and this.args.no_repo):
             logging.debug(f"Refusing to download {packageName}; we were told not to use a repository.")
             return
+
+        logging.debug(f"Trying to download {packageName} from repository ({this.repo['url']})")
 
         if (not os.path.exists(this.repo['store'])):
             logging.debug(f"Creating directory {this.repo['store']}")
@@ -280,127 +315,51 @@ class Executor(DataContainer, UserFunctor):
         os.remove(packageZipPath)
         
         if (registerClasses):
-            this.RegisterAllClassesInDirectory(
-                this.repo['store'],
-                resolveDependencies,
-                attemptedResolutions
-            )
+            this.RegisterAllClassesInDirectory(this.repo['store'])
             
     #RETURNS and instance of a Datum, UserFunctor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
     #Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
     #Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
+    @recoverable
     def GetRegistered(this,
         registeredName,
-        prefix="",
-        resolveDependencies=True,
-        attemptedResolutions={}):
+        prefix=""):
 
-        #Start by looking at what we have.
         try:
             registered = SelfRegistering(registeredName)
-        except FailedDependencyResolution as fatal:
-            raise fatal
         except Exception as e:
-            if (not resolveDependencies):
-                raise e
-            this.GetRegistered(
-                registeredName,
-                prefix,
-                resolveDependencies,
-                this.ResolveDependency(e, prefix, attemptedResolutions)
-            )
+            #We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
+            raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {prefix}_{registeredName}")
 
         #NOTE: UserFunctors are Data, so they have an IsValid() method
         if (not registered or not registered.IsValid()):
             logging.error(f"No valid object: {registeredName}")
-            raise Exception(f"No valid object: {registeredName}")
+            raise FatalCannotExecute(f"No valid object: {registeredName}") 
 
         return registered
 
     
     #Non-static override of the SelfRegistering method.
-    #Needed for dependency resolution.
-    def RegisterAllClassesInDirectory(this,
-        directory,
-        resolveDependencies=True,
-        attemptedResolutions={}):
-        try:
-            SelfRegistering.RegisterAllClassesInDirectory(directory)
-        except FailedDependencyResolution as fatal:
-            raise fatal
-        except Exception as e:
-            if (not resolveDependencies):
-                raise e
-            this.RegisterAllClassesInDirectory(
-                directory,
-                resolveDependencies,
-                this.ResolveDependency(e, "", attemptedResolutions)
-            )
+    #Needed for errorObject resolution.
+    @recoverable
+    def RegisterAllClassesInDirectory(this, directory):
+        SelfRegistering.RegisterAllClassesInDirectory(directory)
 
+
+    #Utility method. may not be useful.
     @staticmethod
-    def GetPrefixFromName(name):
+    def SplitNameOnPrefix(name):
         splitName = name.split('_')
         if (len(splitName)>1):
-            return splitName[0]
-        return ""
-
-    @staticmethod
-    def GetErrorType(error):
-        return type(error).__name__
-
-    @staticmethod
-    def GetDependencyFromError(error):
-        errorType = Executor.GetErrorType(error)
-        if (errorType == 'ModuleNotFoundError'):
-            return str(ie)[17:-1] #No module named '...'
-        elif (errorType == 'NameError'):
-            return str(error)[6:-16] #name '...' is not defined
-        elif (errorType == 'ClassNotFound'):
-            return str(error)[32:] #No known SelfRegistering class: ...
-        else:
-            raise FailedDependencyResolution(f"Cannot parse dependency from ({errorType}): {str(error)}")
+            return splitName[0], splitName[1]
+        return "", name
 
 
-    #Will attempt to download, install, etc. any symbol which is not found and which we think we know how to find.
-    def ResolveDependency(this,
-        error,
-        prefix = "",
-        attemptedResolutions={}):
-
-        errorType = this.GetErrorType(error)
-        dependency = this.GetDependencyFromError(error)
-        
-        if (errorType not in attemptedResolutions):
-            attemptedResolutions.update({errorType: []})
-        if (dependency in attemptedResolutions[errorType]):
-            raise FailedDependencyResolution(f"Failed to resolve dependency: {dependency}; {errorType}: {str(error)}")    
-        attemptedResolutions[errorType].append(dependency)
-
-        if (errorType == 'ModuleNotFoundError'):
-            #install the python module
-            this.RunCommand(f"{sys.executable} -m pip install {dependency}")
-
-        elif (errorType == 'NameError'):
-            if (not prefix):
-                prefix = this.GetPrefixFromName(dependency)
-
-            #Grab the eons module.
-            #NOTE: The prefix should be the same as the package we're trying to resolve dependencies for.
-            this.GetRegistered(
-                dependency,
-                prefix,
-                True,
-                attemptedResolutions)
-
-        elif (errorType == 'ClassNotFound'):
-            packageName = dependency
-            if (prefix):
-                packageName = f"{prefix}_{packageName}"
-            logging.debug(f"Trying to download {packageName} from repository ({this.repo['url']})")
-            this.DownloadPackage(packageName)
-        
-        else:
-            raise FailedDependencyResolution(f"Cannot handle error ({errorType}): {str(error)}")
-
-        return attemptedResolutions
-
+    #Uses the ResolveError UserFunctors to process any errors.
+    def ResolveError(this, error):
+        for res in this.resolveErrorsWith:
+            try:
+                resolve = this.GetRegistered(res, "resolve") #Okay to resolve errors for error resolvers.
+                this.resolutionsAttempted = resolve(executor=this, error=error)
+            except Exception as e:
+                this.ResolveError(e)
