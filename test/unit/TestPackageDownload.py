@@ -3,9 +3,15 @@ import logging
 import sys, os
 import eons
 import shutil
+from pathlib import Path
 
-sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "util"))
-sys.path.append(os.path.join((os.path.dirname(os.path.abspath(__file__))), "class"))
+thisPath = Path(__file__).parent.resolve()
+utilPath = str(thisPath.joinpath("util"))
+classPath = str(thisPath.joinpath("class"))
+registerPath = str(thisPath.joinpath("register"))
+
+sys.path.append(utilPath)
+sys.path.append(classPath)
 
 from dotdict import dotdict
 from DummyExecutor import DummyExecutor
@@ -22,6 +28,8 @@ def test_package_download_without_repo():
         'verbose': 1,
         'config': None
     })
+
+    # These are no longer needed.
     # executor.extraArgs = {
     #     'repo_store': executor.defaultRepoDirectory,
     #     'repo_url': 'https://api.infrastructure.tech/v1/package',
@@ -33,11 +41,11 @@ def test_package_download_without_repo():
     #Make sure test package doesn't exist.
     #package_test is avaliable from infrastructure.tech.
     with pytest.raises(Exception):
-        executor.GetRegistered("test")
+        executor.GetRegistered("eonstestpackage")
         assert(False) # just in case something was missed.
 
     with pytest.raises(Exception):
-        executor.GetRegistered("test", "package")
+        executor.GetRegistered("eonstestpackage", "package")
         assert(False) # just in case something was missed.
 
 
@@ -53,19 +61,20 @@ def test_package_download_with_repo():
         'verbose': 1,
         'config': None
     })
-    executor.extraArgs = {
-        'repo_store': executor.defaultRepoDirectory,
-        'repo_url': 'https://api.infrastructure.tech/v1/package',
-    }
 
     logging.debug(f"Executor args: {executor.args}")
     executor()
+
+    # For some reason, the name 'test' is unusable if this line is included.
+    # This line comes from TestInheritance and will be run before *this under normal circumstances (i.e. when running all tests).
+    # 'test' has thus been renamed to 'eonstestpackage'
+    # executor.RegisterAllClassesInDirectory(registerPath)
 
     logging.info(f"Deleting: {executor.repo['store']}")
     if (os.path.exists(executor.repo['store'])):
         shutil.rmtree(executor.repo['store'])
 
-    test = executor.GetRegistered("test", "package")
+    test = executor.GetRegistered("eonstestpackage", "package")
     assert(test is not None)
     test(executor=executor)
     assert(test.result == 1)

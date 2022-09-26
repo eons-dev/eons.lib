@@ -52,9 +52,11 @@ class SelfRegistering(object):
         # logging.debug(f"Available files: {os.listdir(directory)}")
         for importer, file, _ in pkgutil.iter_modules([directory]):
             logging.debug(f"Found {file} with {importer}")
-            if file not in sys.modules and file != 'main':
-                module = importer.find_module(file).load_module(file) #FIXME: DEPRECATED
-                # module = importer.find_module(file).exec_module(file) #fails with "AttributeError: 'str' object has no attribute '__name__'" ???
+            if (file != 'main'): #ignore check for file not in sys.modules
+                importer.find_module(file).load_module(file) #FIXME: Deprecated
+                # __import__(file) #FIXME: just doesn't work for 'test'???
+                #importer.find_module(file).exec_module(file) #fails with "AttributeError: 'str' object has no attribute '__name__'" ???
 
         # enable importing and inheritance for SelfRegistering classes
-        sys.path.append(directory)
+        if (directory not in sys.path):
+            sys.path.append(directory)

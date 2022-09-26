@@ -46,3 +46,8 @@ class Fatal(Exception, metaclass=ActualType):
 
 class FatalCannotExecute(Fatal, metaclass=ActualType):
     pass
+
+
+
+class PackageError(Exception, metaclass=ActualType):
+    pass

@@ -8,65 +8,22 @@ from zipfile import ZipFile
 from distutils.dir_util import mkpath
 from .Constants import *
 from .Exceptions import *
+from .Utils import *
 from .DataContainer import DataContainer
 from .UserFunctor import UserFunctor
 from .SelfRegistering import SelfRegistering
+from .Recoverable import recoverable
 
-#This needs to be recursive, so rather than having the recoverable decorator call or decorate itself, we just break the logic into this separate method.
-def recoverable_implementation(executor, function, lastError, *args, **kwargs):
-    try:
-        return function(executor, *args, **kwargs)
-    except FailedErrorResolution as fatal:
-        raise fatal
-    except Exception as e:
-        if (not executor.resolveErrors):
-            raise e
-
-        #If we already tried handling this error for this function call, something is wrong. abort.
-        if (lastError and lastError == e):
-            raise FailedErrorResolution(f"Error could not be resolved: {lastError}")
-
-        #ResolveError should be the only method which adds to executor.errorResolutionStack.
-        #ResolveError is itself @recoverable.
-        #So, each time we hit this point, we should also hit a corresponding ClearErrorResolutionStack() call. 
-        #If we do not, an exception is passed to the caller; if we do, the stack will be cleared upon the last resolution.
-        executor.errorRecursionDepth = executor.errorRecursionDepth + 1
-
-        for i, res in enumerate(executor.resolveErrorsWith):
-
-            executor.ResolveError(e, i) #attempt to resolve the issue; might cause us to come back here with a new error.
-            try:
-                ret = function(executor, *args, **kwargs)
-                executor.ClearErrorResolutionStack() #success!
-                return ret
-            except:
-                #Resolution failed. That's okay. Let's try the next.
-                #Not all ResolveErrors will apply to all errors, so we may have to try a few before we get one that works.
-                pass
-
-            # We failed to resolve the error. Die
-            raise FailedErrorResolution(f"Tried and failed to resolve: {e}")
-        else:
-            raise e
-
-#Recursive function meant to be used as a decorator.
-#Decorating another function with this method will engage the error recovery system provided by *this.
-#For more info, see ResolveError, below.
-def recoverable(function):
-    def method(executor, *args, **kwargs):
-        return recoverable_implementation(executor, function, None, *args, **kwargs)
-    return method
-
-#Executor: a base class for user interfaces.
-#An Executor is a functor and can be executed as such.
-#For example
-#   class MyExecutor(Executor):
-#       def __init__(this):
-#           super().__init__()
-#   . . .
-#   myprogram = MyExecutor()
-#   myprogram()
-#NOTE: Diamond inheritance of Datum.
+# Executor: a base class for user interfaces.
+# An Executor is a functor and can be executed as such.
+# For example
+#    class MyExecutor(Executor):
+#        def __init__(this):
+#            super().__init__()
+#    . . .
+#    myprogram = MyExecutor()
+#    myprogram()
+# NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, UserFunctor):
             
 
@@ -78,24 +35,30 @@ class Executor(DataContainer, UserFunctor):
         this.resolveErrors = True
         this.errorRecursionDepth = 0
         this.errorResolutionStack = {}
-        this.resolveErrorsWith = [ #order matters: first is first.
+        this.resolveErrorsWith = [ # order matters: first is first.
             'install_from_repo',
             'install_with_pip'
         ]
 
         this.cwd = os.getcwd()
+        this.syspath = sys.path  # not used atm.
+
         this.Configure()
         this.argparser = argparse.ArgumentParser(description = descriptionStr)
         this.args = None
         this.extraArgs = None
         this.AddArgs()
 
-        #Force this to run early. Otherwise we might end up in infinite loops and segfault.
+        # Force this to run early. Otherwise we might end up in infinite loops and segfault.
         this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
 
+    # Adapter for @recoverable.
+    # See Recoverable.py for details
+    def GetExecutor(this):
+        return this
 
-    #this.errorResolutionStack are whatever we've tried to do to fix whatever our problem is.
-    #This method resets our attempts to remove stale data.
+    # this.errorResolutionStack are whatever we've tried to do to fix whatever our problem is.
+    # This method resets our attempts to remove stale data.
     def ClearErrorResolutionStack(this):
         if (this.errorRecursionDepth):
             this.errorRecursionDepth = this.errorRecursionDepth - 1
@@ -103,45 +66,45 @@ class Executor(DataContainer, UserFunctor):
         if (not this.errorRecursionDepth):
             this.errorResolutionStack = {}
 
-    #Configure class defaults.
-    #Override this to customize your Executor.
+    # Configure class defaults.
+    # Override this to customize your Executor.
     def Configure(this):
         this.defaultRepoDirectory = os.path.abspath(os.path.join(this.cwd, "./eons/"))
         this.registerDirectories = []
         this.defualtConfigFile = None
 
-        #Usually, Executors shunt work off to other UserFunctors, so we leave these True unless a child needs to check its work.
+        # Usually, Executors shunt work off to other UserFunctors, so we leave these True unless a child needs to check its work.
         this.functionSucceeded = True
         this.rollbackSucceeded = True
 
 
-    #Add a place to search for SelfRegistering classes.
-    #These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
+    # Add a place to search for SelfRegistering classes.
+    # These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
     def RegisterDirectory(this, directory):
         this.registerDirectories.append(os.path.abspath(os.path.join(this.cwd,directory)))
 
 
-    #Global logging config.
-    #Override this method to disable or change.
+    # Global logging config.
+    # Override this method to disable or change.
     def SetupLogging(this):
         logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S')
 
 
-    #Adds command line arguments.
-    #Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
+    # Adds command line arguments.
+    # Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
     def AddArgs(this):
         this.argparser.add_argument('--verbose', '-v', action='count', default=0)
         this.argparser.add_argument('--quiet', '-q', action='count', default=0)
         this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
         this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
-    #Create any sub-class necessary for child-operations
-    #Does not RETURN anything.
+    # Create any sub-class necessary for child-operations
+    # Does not RETURN anything.
     def InitData(this):
         pass
 
 
-    #Register all classes in each directory in this.registerDirectories
+    # Register all classes in each directory in this.registerDirectories
     def RegisterAllClasses(this):
         for d in this.registerDirectories:
             this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
@@ -149,17 +112,17 @@ class Executor(DataContainer, UserFunctor):
 
 
 
-    #Something went wrong, let's quit.
-    #TODO: should this simply raise an exception?
+    # Something went wrong, let's quit.
+    # TODO: should this simply raise an exception?
     def ExitDueToErr(this, errorStr):
-        # logging.info("#################################################################\n")
+        #  logging.info("#################################################################\n")
         logging.error(errorStr)
-        # logging.info("\n#################################################################")
+        #  logging.info("\n#################################################################")
         this.argparser.print_help()
         sys.exit()
 
 
-    #Populate the configuration details for *this.
+    # Populate the configuration details for *this.
     def PopulateConfig(this):
         this.config = None
 
@@ -173,7 +136,7 @@ class Executor(DataContainer, UserFunctor):
             logging.debug(f"Got config contents: {this.config}")
 
 
-    # Get information for how to download packages.
+    #  Get information for how to download packages.
     def PopulateRepoDetails(this):
         details = {
             "store": this.defaultRepoDirectory,
@@ -192,8 +155,8 @@ class Executor(DataContainer, UserFunctor):
                 this.repo[key] = this.Fetch(f"repo_{key}", default=default)
 
 
-    #Do the argparse thing.
-    #Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ... 
+    # Do the argparse thing.
+    # Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ... 
     def ParseArgs(this):
         this.args, extraArgs = this.argparser.parse_known_args()
 
@@ -216,15 +179,15 @@ class Executor(DataContainer, UserFunctor):
             extraArgsValues.append(extraArgs[index])
 
         this.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
-        logging.debug(f"Got extra arguments: {this.extraArgs}") #has to be after verbosity setting
+        logging.debug(f"Got extra arguments: {this.extraArgs}") # has to be after verbosity setting
 
 
-    # Will try to get a value for the given varName from:
-    #    first: this.
-    #    second: extra arguments provided to *this.
-    #    third: the config file, if provided.
-    #    fourth: the environment (if enabled).
-    # RETURNS the value of the given variable or default.
+    #  Will try to get a value for the given varName from:
+    #     first: this.
+    #     second: extra arguments provided to *this.
+    #     third: the config file, if provided.
+    #     fourth: the environment (if enabled).
+    #  RETURNS the value of the given variable or default.
     @recoverable
     def Fetch(this, varName, default=None, enableThis=True, enableArgs=True, enableConfig=True, enableEnvironment=True):
         logging.debug(f"Fetching {varName}...")
@@ -255,24 +218,24 @@ class Executor(DataContainer, UserFunctor):
         return default
 
 
-    #UserFunctor method.
-    #We have to ParseArgs() here in order for other Executors to use ____KWArgs...
+    # UserFunctor method.
+    # We have to ParseArgs() here in order for other Executors to use ____KWArgs...
     def ParseInitialArgs(this):
-        this.ParseArgs() #first, to enable debug and other such settings.
+        this.ParseArgs() # first, to enable debug and other such settings.
         this.PopulateConfig()
         this.PopulateRepoDetails()
         
-    #UserFunctor required method
-    #Override this with your own workflow.
+    # UserFunctor required method
+    # Override this with your own workflow.
     def UserFunction(this):
         this.RegisterAllClasses()
         this.InitData()
 
 
-    #Attempts to download the given package from the repo url specified in calling args.
-    #Will refresh registered classes upon success
-    #RETURNS void
-    #Does not guarantee new classes are made available; errors need to be handled by the caller.
+    # Attempts to download the given package from the repo url specified in calling args.
+    # Will refresh registered classes upon success
+    # RETURNS whether or not the package was downloaded. Will raise Exceptions on errors.
+    # Does not guarantee new classes are made available; errors need to be handled by the caller.
     @recoverable
     def DownloadPackage(this,
         packageName,
@@ -281,7 +244,7 @@ class Executor(DataContainer, UserFunctor):
 
         if (this.args.no_repo is not None and this.args.no_repo):
             logging.debug(f"Refusing to download {packageName}; we were told not to use a repository.")
-            return
+            return False
 
         logging.debug(f"Trying to download {packageName} from repository ({this.repo['url']})")
 
@@ -304,12 +267,11 @@ class Executor(DataContainer, UserFunctor):
         packageQuery = requests.get(url, auth=auth, headers=headers, stream=True)
 
         if (packageQuery.status_code != 200):
-            logging.error(f"Unable to download {packageName}")
-            #TODO: raise error?
-            return #let caller decide what to do next.
+            LogAndRaiseError(f"Unable to download {packageName}", PackageError)
+            # let caller decide what to do next.
 
         packageSize = int(packageQuery.headers.get('content-length', 0))
-        chunkSize = 1024 #1 Kibibyte
+        chunkSize = 1024 # 1 Kibibyte
 
         logging.debug(f"Writing {packageZipPath} ({packageSize} bytes)")
         packageZipContents = open(packageZipPath, 'wb+')
@@ -327,16 +289,12 @@ class Executor(DataContainer, UserFunctor):
             progressBar.close()
 
         if (packageSize and not this.args.quiet and progressBar.n != packageSize):
-            logging.error(f"Package wrote {progressBar.n} / {packageSize} bytes")
-            # TODO: raise error?
-            return
+            LogAndRaiseError(f"Package wrote {progressBar.n} / {packageSize} bytes", PackageError)
         
         packageZipContents.close()
 
         if (not os.path.exists(packageZipPath)):
-            logging.error(f"Failed to create {packageZipPath}")
-            # TODO: raise error?
-            return
+            LogAndRaiseError(f"Failed to create {packageZipPath}", PackageError)
 
         logging.debug(f"Extracting {packageZipPath}")
         openArchive = ZipFile(packageZipPath, 'r')
@@ -349,10 +307,12 @@ class Executor(DataContainer, UserFunctor):
         
         if (registerClasses):
             this.RegisterAllClassesInDirectory(this.repo['store'])
+
+        return True
             
-    #RETURNS and instance of a Datum, UserFunctor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
-    #Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
-    #Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
+    # RETURNS and instance of a Datum, UserFunctor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
+    # Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
+    # Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
     @recoverable
     def GetRegistered(this,
         registeredName,
@@ -361,13 +321,13 @@ class Executor(DataContainer, UserFunctor):
         try:
             registered = SelfRegistering(registeredName)
         except Exception as e:
-            #We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
+            # We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
             packageName = registeredName
             if (prefix):
                 packageName = f"{prefix}_{registeredName}"
             raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
-        #NOTE: UserFunctors are Data, so they have an IsValid() method
+        # NOTE: UserFunctors are Data, so they have an IsValid() method
         if (not registered or not registered.IsValid()):
             logging.error(f"No valid object: {registeredName}")
             raise FatalCannotExecute(f"No valid object: {registeredName}") 
@@ -375,14 +335,16 @@ class Executor(DataContainer, UserFunctor):
         return registered
 
     
-    #Non-static override of the SelfRegistering method.
-    #Needed for errorObject resolution.
+    # Non-static override of the SelfRegistering method.
+    # Needed for errorObject resolution.
     @recoverable
     def RegisterAllClassesInDirectory(this, directory):
+        if (directory not in this.syspath):
+            this.syspath.append(directory)
         SelfRegistering.RegisterAllClassesInDirectory(directory)
 
 
-    #Utility method. may not be useful.
+    # Utility method. may not be useful.
     @staticmethod
     def SplitNameOnPrefix(name):
         splitName = name.split('_')
@@ -391,12 +353,13 @@ class Executor(DataContainer, UserFunctor):
         return "", name
 
 
-    #Uses the ResolveError UserFunctors to process any errors.
+    # Uses the ResolveError UserFunctors to process any errors.
     @recoverable
     def ResolveError(this, error, attemptResolution):
         if (attemptResolution >= len(this.resolveErrorsWith)):
             raise FailedErrorResolution(f"{this.name} does not have {attemptResolution} resolutions to fix this error: {error} (it has {len(this.resolveErrorsWith)})")
 
-        resolve = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") #Okay to resolve errors for error resolvers.
-        this.errorResolutionStack = resolve(executor=this, error=error)
+        resolution = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") # Okay to ResolveErrors for ErrorResolutions.
+        this.errorResolutionStack, errorMightBeResolved = resolution(executor=this, error=error)
+        return errorMightBeResolved
 

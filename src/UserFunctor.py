@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from .Constants import *
 from .Datum import Datum
 from .Exceptions import *
+from .Recoverable import recoverable
 
 #UserFunctor is a base class for any function-oriented class structure or operation.
 #This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
@@ -277,6 +278,11 @@ class UserFunctor(ABC, Datum):
 
         logging.debug(f">---- {this.name} complete ----<")
         return ret
+
+    # Adapter for @recoverable.
+    # See Recoverable.py for details
+    def GetExecutor(this):
+        return this.executor
 
     ######## START: UTILITIES ########
 
