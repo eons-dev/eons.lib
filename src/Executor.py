@@ -327,6 +327,7 @@ class Executor(DataContainer, UserFunctor):
             packageName = registeredName
             if (prefix):
                 packageName = f"{prefix}_{registeredName}"
+            logging.error(f"While trying to instantiate {packageName}, got: {e}")
             raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
         # NOTE: UserFunctors are Data, so they have an IsValid() method
