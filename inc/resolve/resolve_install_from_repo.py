@@ -11,4 +11,4 @@ class install_from_repo(eons.ErrorResolution):
         this.ApplyTo('ModuleNotFoundError', "No module named 'OBJECT'")
 
     def Resolve(this):
-        this.functionSucceeded = this.executor.DownloadPackage(this.errorObject)
+        this.errorShouldBeResolved = this.executor.DownloadPackage(this.errorObject)

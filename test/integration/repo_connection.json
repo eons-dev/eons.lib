@@ -40,7 +40,7 @@
           {
             "kind" : "command",
             "check" : "output",
-            "command" : "testexecutor -q",
+            "command" : "testexecutor -q -q",
             "expected" : [
               "Hello world!",
               ""

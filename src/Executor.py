@@ -3,12 +3,12 @@ import argparse
 import logging
 import requests
 import jsonpickle
+from pathlib import Path
 from tqdm import tqdm
 from zipfile import ZipFile
 from distutils.dir_util import mkpath
 from .Constants import *
 from .Exceptions import *
-from .Utils import *
 from .DataContainer import DataContainer
 from .UserFunctor import UserFunctor
 from .SelfRegistering import SelfRegistering
@@ -48,9 +48,6 @@ class Executor(DataContainer, UserFunctor):
         this.args = None
         this.extraArgs = None
         this.AddArgs()
-
-        # Force this to run early. Otherwise we might end up in infinite loops and segfault.
-        this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
 
     # Adapter for @recoverable.
     # See Recoverable.py for details
@@ -103,13 +100,16 @@ class Executor(DataContainer, UserFunctor):
     def InitData(this):
         pass
 
+    # Register included files early so that they can be used by the rest of the system.
+    # If we don't do this, we risk hitting infinite loops because modular functionality relies on these modules.
+    def RegisterIncludedClasses(this):
+        this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath("resolve")))
 
     # Register all classes in each directory in this.registerDirectories
     def RegisterAllClasses(this):
         for d in this.registerDirectories:
             this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
         this.RegisterAllClassesInDirectory(this.repo['store'])
-
 
 
     # Something went wrong, let's quit.
@@ -156,7 +156,8 @@ class Executor(DataContainer, UserFunctor):
 
 
     # Do the argparse thing.
-    # Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ... 
+    # Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ...
+    # NOTE: YOU CANNOT USE @recoverable METHODS HERE!
     def ParseArgs(this):
         this.args, extraArgs = this.argparser.parse_known_args()
 
@@ -222,6 +223,7 @@ class Executor(DataContainer, UserFunctor):
     # We have to ParseArgs() here in order for other Executors to use ____KWArgs...
     def ParseInitialArgs(this):
         this.ParseArgs() # first, to enable debug and other such settings.
+        this.RegisterIncludedClasses()
         this.PopulateConfig()
         this.PopulateRepoDetails()
         
@@ -267,7 +269,7 @@ class Executor(DataContainer, UserFunctor):
         packageQuery = requests.get(url, auth=auth, headers=headers, stream=True)
 
         if (packageQuery.status_code != 200):
-            LogAndRaiseError(f"Unable to download {packageName}", PackageError)
+            raise PackageError(f"Unable to download {packageName}")
             # let caller decide what to do next.
 
         packageSize = int(packageQuery.headers.get('content-length', 0))
@@ -289,12 +291,12 @@ class Executor(DataContainer, UserFunctor):
             progressBar.close()
 
         if (packageSize and not this.args.quiet and progressBar.n != packageSize):
-            LogAndRaiseError(f"Package wrote {progressBar.n} / {packageSize} bytes", PackageError)
+            raise PackageError(f"Package wrote {progressBar.n} / {packageSize} bytes")
         
         packageZipContents.close()
 
         if (not os.path.exists(packageZipPath)):
-            LogAndRaiseError(f"Failed to create {packageZipPath}", PackageError)
+            raise PackageError(f"Failed to create {packageZipPath}")
 
         logging.debug(f"Extracting {packageZipPath}")
         openArchive = ZipFile(packageZipPath, 'r')
@@ -339,8 +341,14 @@ class Executor(DataContainer, UserFunctor):
     # Needed for errorObject resolution.
     @recoverable
     def RegisterAllClassesInDirectory(this, directory):
+        path = Path(directory)
+        if (not path.exists()):
+            logging.debug(f"Making path for SelfRegitering classes: {str(path)}")
+            path.mkdir(parents=True, exist_ok=True)
+
         if (directory not in this.syspath):
             this.syspath.append(directory)
+
         SelfRegistering.RegisterAllClassesInDirectory(directory)
 
 
@@ -361,5 +369,7 @@ class Executor(DataContainer, UserFunctor):
 
         resolution = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") # Okay to ResolveErrors for ErrorResolutions.
         this.errorResolutionStack, errorMightBeResolved = resolution(executor=this, error=error)
+        if (errorMightBeResolved):
+            logging.debug(f"Error might have been resolved by {resolution.name}.")
         return errorMightBeResolved
 

@@ -1,6 +1,9 @@
 import os, sys
 import logging
 import pkgutil
+import importlib.machinery
+import importlib.util
+import types
 from .Exceptions import *
 
 #Self registration for use with json loading.
@@ -45,17 +48,33 @@ class SelfRegistering(object):
         # logging.debug(f"Created object of {child.__dict__}")
 
         return child
-        
+
     @staticmethod
     def RegisterAllClassesInDirectory(directory):
         logging.debug(f"Loading SelfRegistering classes in {directory}")
-        # logging.debug(f"Available files: {os.listdir(directory)}")
-        for importer, file, _ in pkgutil.iter_modules([directory]):
-            logging.debug(f"Found {file} with {importer}")
-            if (file != 'main'): #ignore check for file not in sys.modules
-                importer.find_module(file).load_module(file) #FIXME: Deprecated
-                # __import__(file) #FIXME: just doesn't work for 'test'???
-                #importer.find_module(file).exec_module(file) #fails with "AttributeError: 'str' object has no attribute '__name__'" ???
+        logging.debug(f"Available modules: {os.listdir(directory)}")
+        for file in os.listdir(directory):
+            if (file.startswith('_') or not file.endswith('.py')):
+                continue
+
+            moduleName = file.split('.')[0]
+
+            # logging.debug(f"Attempting to registering classes in {moduleName}.")
+            loader = importlib.machinery.SourceFileLoader(moduleName, os.path.join(directory, file))
+            module = types.ModuleType(loader.name)
+            loader.exec_module(module)
+
+            # NOTE: the module is not actually imported in that it is available through sys.modules.
+            # However, this appears to be enough to get both inheritance and SelfRegistering functionality to work.
+            sys.modules[moduleName] = module #But just in case...
+            logging.debug(f"{moduleName} imported.")
+
+            #### Other Options ####
+            # __import__(module)
+            # OR
+            # for importer, module, _ in pkgutil.iter_modules([directory]):
+            #     importer.find_module(module).exec_module(module) #fails with "AttributeError: 'str' object has no attribute '__name__'"
+            #     importer.find_module(module).load_module(module) #Deprecated
 
         # enable importing and inheritance for SelfRegistering classes
         if (directory not in sys.path):

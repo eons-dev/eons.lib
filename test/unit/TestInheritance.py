@@ -25,6 +25,7 @@ def test_inheritance():
     executor.args = dotdict({
         'no_repo': True,
         'verbose': 1,
+        'quiet': 0,
         'config': None
     })
     # executor.extraArgs = {

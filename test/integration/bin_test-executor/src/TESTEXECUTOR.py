@@ -12,8 +12,18 @@ class TESTEXECUTOR(e.Executor):
     def Configure(this):
         super().Configure()
 
+        # this.logLevel = logging.getLogger().level
+
     #Override of eons.Executor method. See that class for details
-    def UserFunction(this, **kwargs):
-        super().UserFunction(**kwargs)
+    def UserFunction(this):
+        logging.getLogger().setLevel(logging.CRITICAL)
+
+        super().UserFunction()
+
         hello = this.GetRegistered("hello_world", "functor")
         hello(executor=this)
+
+    def PostCall(this):
+        # logging.getLogger().setLevel(this.logLevel)
+        pass
+

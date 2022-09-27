@@ -26,12 +26,11 @@ def test_package_download_without_repo():
     executor.args = dotdict({
         'no_repo': True,
         'verbose': 1,
+        'quiet': 0,
         'config': None
     })
-
-    # These are no longer needed.
     # executor.extraArgs = {
-    #     'repo_store': executor.defaultRepoDirectory,
+    #     'repo_store': str(Path("./eons/").resolve()),
     #     'repo_url': 'https://api.infrastructure.tech/v1/package',
     # }
 
@@ -59,20 +58,27 @@ def test_package_download_with_repo():
     executor.args = dotdict({
         'no_repo': False,
         'verbose': 1,
+        'quiet': 0,
         'config': None
     })
+    # executor.extraArgs = {
+    #     'repo_store': str(Path("./eons/").resolve()),
+    #     'repo_url': 'https://api.infrastructure.tech/v1/package',
+    # }
 
     logging.debug(f"Executor args: {executor.args}")
     executor()
 
     # For some reason, the name 'test' is unusable if this line is included.
+    # AND InheritingClasses calls 'import apie'.
     # This line comes from TestInheritance and will be run before *this under normal circumstances (i.e. when running all tests).
-    # 'test' has thus been renamed to 'eonstestpackage'
+    # 'test' has thus been renamed to 'test'
     # executor.RegisterAllClassesInDirectory(registerPath)
 
     logging.info(f"Deleting: {executor.repo['store']}")
     if (os.path.exists(executor.repo['store'])):
         shutil.rmtree(executor.repo['store'])
+
 
     test = executor.GetRegistered("eonstestpackage", "package")
     assert(test is not None)

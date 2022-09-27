@@ -17,8 +17,11 @@ class ErrorStringParser:
         this.startPosition = startPosition
         this.endPosition = endPosition
 
-    def Parse(errorString):
-        return errorString[this.startPosition, this.endPosition]
+    def Parse(this, errorString):
+        end = this.endPosition
+        if (not end):
+            end = len(errorString)
+        return errorString[this.startPosition:end]
 
 
 # ErrorResolution is a UserFunctor which can be executed when an Exception is raised.
@@ -41,8 +44,10 @@ class ErrorResolution(UserFunctor):
         # So, let's store that in functionSucceeded. Meaning if this.functionSucceeded, try the original method again.
         # No rollback, by default and definitely don't throw Exceptions.
         this.enableRollback = False
-        this.functionSucceeded = False
+        this.functionSucceeded = True
         this.raiseExceptions = False
+
+        this.errorShouldBeResolved = False
 
 
     # Put your logic here!
@@ -59,6 +64,7 @@ class ErrorResolution(UserFunctor):
 
         ###############################################
         # Please throw errors if something goes wrong #
+        # Otherwise, set this.errorShouldBeResolved   #
         ###############################################
         
         pass
@@ -81,11 +87,10 @@ class ErrorResolution(UserFunctor):
         for parser in this.parsers:
             if (parser.applicableError != this.errorType):
                 continue
-            end = parser.endPosition
-            if (not end):
-                end = len(this.errorString)
-            this.errorObject = this.errorString[parser.startPosition:end]
+
+            this.errorObject = parser.Parse(this.errorString)
             return
+
         raise ErrorResolutionError(f"{this.name} cannot parse error object from ({this.errorType}): {str(this.error)}.")
 
     # Determine if this resolution method is applicable.
@@ -111,15 +116,17 @@ class ErrorResolution(UserFunctor):
     # We'll keep calling this until an error is raised.
     def UserFunction(this):
         this.functionSucceeded = True
-        if (not this.CanProcess()):
-            this.functionSucceeded = False
-            return this.errorResolutionStack, this.functionSucceeded
-
-        if (not this.error in this.errorResolutionStack.keys()):
-            this.errorResolutionStack.update({this.error:[]})
+        this.errorShouldBeResolved = True
         
-        if (this.name in this.errorResolutionStack[this.error]):
-            raise FailedErrorResolution(f"{this.name} already tried and failed to resolve {this.errorType}: {str(this.error)}.")
+        if (not this.CanProcess()):
+            this.errorShouldBeResolved = False
+            return this.errorResolutionStack, this.errorShouldBeResolved
+
+        if (not this.errorString in this.errorResolutionStack.keys()):
+            this.errorResolutionStack.update({this.errorString:[]})
+        
+        if (this.name in this.errorResolutionStack[this.errorString]):
+            raise FailedErrorResolution(f"{this.name} already tried and failed to resolve {this.errorType}: {this.errorString}.")
 
         this.GetObjectFromError()
 
@@ -128,6 +135,6 @@ class ErrorResolution(UserFunctor):
         except:
             this.functionSucceeded = False
         
-        this.errorResolutionStack[this.error].append(this.name)
-        return this.errorResolutionStack, this.functionSucceeded
+        this.errorResolutionStack[this.errorString].append(this.name)
+        return this.errorResolutionStack, this.errorShouldBeResolved
         
