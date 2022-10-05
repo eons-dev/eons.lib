@@ -10,50 +10,54 @@ from .Datum import Datum
 from .Exceptions import *
 from .Recoverable import recoverable
 
-#UserFunctor is a base class for any function-oriented class structure or operation.
-#This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
+# UserFunctor is a base class for any function-oriented class structure or operation.
+# This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
 class UserFunctor(ABC, Datum):
 
     def __init__(this, name=INVALID_NAME()):
         super().__init__(name)
 
-        #All necessary args that *this cannot function without.
+        # All necessary args that *this cannot function without.
         this.requiredKWArgs = []
 
-        #Static arguments are Fetched when *this is first called and never again.
-        #All static arguments are required.
+        # Static arguments are Fetched when *this is first called and never again.
+        # All static arguments are required.
         this.staticKWArgs = []
         this.staticKWArgsValid = False
 
-        #For optional args, supply the arg name as well as a default value.
+        # Because values can be Fetched from *this, values that should be provided in arguments will be ignored in favor of those Fetched by a previous call to *this.
+        # Thus, we can't enableThis when Fetching required or optional KWArgs (this is done for you in ValidateArgs)
+        # If you want an arg to be populated by a child's member, make it static.
+
+        # For optional args, supply the arg name as well as a default value.
         this.optionalKWArgs = {}
 
-        #All external dependencies *this relies on (binaries that can be found in PATH).
-        #These are treated as static args (see above).
+        # All external dependencies *this relies on (binaries that can be found in PATH).
+        # These are treated as static args (see above).
         this.requiredPrograms = []
 
-        #For converting config value names.
-        #e.g. "type": "projectType" makes it so that when calling Set("projectType", ...),  this.type is changed.
+        # For converting config value names.
+        # e.g. "type": "projectType" makes it so that when calling Set("projectType", ...),  this.type is changed.
         this.configNameOverrides = {}
 
-        #Rolling back can be disabled by setting this to False.
+        # Rolling back can be disabled by setting this to False.
         this.enableRollback = True
 
-        #Numerical result indication the success or failure of *this.
-        #Set automatically.
-        #0 is invalid; 1 is best; higher numbers are usually worse.
+        # Numerical result indication the success or failure of *this.
+        # Set automatically.
+        # 0 is invalid; 1 is best; higher numbers are usually worse.
         this.result = 0
 
-        #Whether or not we should pass on exceptions when calls fail.
+        # Whether or not we should pass on exceptions when calls fail.
         this.raiseExceptions = True
 
-        #Ease of use members
-        #These can be calculated in UserFunction and Rollback, respectively.
+        # Ease of use members
+        # These can be calculated in UserFunction and Rollback, respectively.
         this.functionSucceeded = False
         this.rollbackSucceeded = False
 
-    #Override this and do whatever!
-    #This is purposefully vague.
+    # Override this and do whatever!
+    # This is purposefully vague.
     @abstractmethod
     def UserFunction(this):
         raise NotImplementedError 
@@ -63,17 +67,17 @@ class UserFunctor(ABC, Datum):
     def Rollback(this):
         pass
 
-    #Override this to check results of operation and report on status.
-    #Override this to perform whatever success checks are necessary.
+    # Override this to check results of operation and report on status.
+    # Override this to perform whatever success checks are necessary.
     def DidUserFunctionSucceed(this):
         return this.functionSucceeded
 
-    #RETURN whether or not the Rollback was successful.
-    #Override this to perform whatever success checks are necessary.
+    # RETURN whether or not the Rollback was successful.
+    # Override this to perform whatever success checks are necessary.
     def DidRollbackSucceed(this):
         return this.rollbackSucceeded
 
-    #Grab any known and necessary args from this.kwargs before any Fetch calls are made.
+    # Grab any known and necessary args from this.kwargs before any Fetch calls are made.
     def ParseInitialArgs(this):
         this.os = platform.system()
         if (not isinstance(this, Executor)):
@@ -106,12 +110,12 @@ class UserFunctor(ABC, Datum):
             else:
                 evaluatedvalue = str(value)
 
-            #Check original type and return the proper value.
+            # Check original type and return the proper value.
             if (isinstance(value, (bool, int, float)) and evaluatedvalue == str(value)):
                 return value
 
-            #Check resulting type and return a casted value.
-            #TODO: is there a better way than double cast + comparison?
+            # Check resulting type and return a casted value.
+            # TODO: is there a better way than double cast + comparison?
             if (evaluatedvalue.lower() == "false"):
                 return False
             elif (evaluatedvalue.lower() == "true"):
@@ -129,7 +133,7 @@ class UserFunctor(ABC, Datum):
             except:
                 pass
 
-            #The type must be a string.
+            # The type must be a string.
             return evaluatedvalue
 
     # Wrapper around setattr
@@ -174,8 +178,8 @@ class UserFunctor(ABC, Datum):
         return this.executor.Fetch(varName, default, enableExecutor, enableArgs, enableExecutorConfig, enableEnvironment)
         
 
-    #Override this with any additional argument validation you need.
-    #This is called before PreCall(), below.
+    # Override this with any additional argument validation you need.
+    # This is called before PreCall(), below.
     def ValidateArgs(this):
         # logging.debug(f"this.kwargs: {this.kwargs}")
         # logging.debug(f"required this.kwargs: {this.requiredKWArgs}")
@@ -188,7 +192,7 @@ class UserFunctor(ABC, Datum):
                     raise UserFunctorError(errStr)
 
             for skw in this.staticKWArgs:
-                if (hasattr(this, skw)): #only in the case of children.
+                if (hasattr(this, skw)): # only in the case of children.
                     continue
 
                 fetched = this.Fetch(skw)
@@ -199,15 +203,16 @@ class UserFunctor(ABC, Datum):
                 # Nope. Failed.
                 errStr = f"{skw} required but not found."
                 logging.error(errStr)
-                raise MissingArgumentError(f"argument {skw} not found in {this.kwargs}") #TODO: not formatting string??
+                raise MissingArgumentError(f"argument {skw} not found in {this.kwargs}")
 
             this.staticKWArgsValid = True
 
         for rkw in this.requiredKWArgs:
-            if (hasattr(this, rkw)):
-                continue
+            # required kwargs must always be fetched in order to allow *this to be called multiple times.
+            # if (hasattr(this, rkw)):
+            #     continue
 
-            fetched = this.Fetch(rkw)
+            fetched = this.Fetch(rkw, enableThis=False)
             if (fetched is not None):
                 this.Set(rkw, fetched)
                 continue
@@ -215,24 +220,25 @@ class UserFunctor(ABC, Datum):
             # Nope. Failed.
             errStr = f"{rkw} required but not found."
             logging.error(errStr)
-            raise MissingArgumentError(f"argument {rkw} not found in {this.kwargs}") #TODO: not formatting string??
+            raise MissingArgumentError(f"argument {rkw} not found in {this.kwargs}")
 
         for okw, default in this.optionalKWArgs.items():
-            if (hasattr(this, okw)):
-                continue
+            # optional kwargs must always be fetched in order to allow *this to be called multiple times.
+            # if (hasattr(this, okw)):
+            #     continue
 
-            this.Set(okw, this.Fetch(okw, default=default))
+            this.Set(okw, this.Fetch(okw, default=default, enableThis=False))
 
-    #Override this with any logic you'd like to run at the top of __call__
+    # Override this with any logic you'd like to run at the top of __call__
     def PreCall(this):
         pass
 
-    #Override this with any logic you'd like to run at the bottom of __call__
+    # Override this with any logic you'd like to run at the bottom of __call__
     def PostCall(this):
         pass
 
-    #Make functor.
-    #Don't worry about this; logic is abstracted to UserFunction
+    # Make functor.
+    # Don't worry about this; logic is abstracted to UserFunction
     def __call__(this, **kwargs) :
         logging.debug(f"<---- {this.name} ---->")
 
@@ -286,15 +292,15 @@ class UserFunctor(ABC, Datum):
 
     ######## START: UTILITIES ########
 
-    #RETURNS: an opened file object for writing.
-    #Creates the path if it does not exist.
+    # RETURNS: an opened file object for writing.
+    # Creates the path if it does not exist.
     def CreateFile(this, file, mode="w+"):
         Path(os.path.dirname(os.path.abspath(file))).mkdir(parents=True, exist_ok=True)
         return open(file, mode)
 
-    #Copy a file or folder from source to destination.
-    #This really shouldn't be so hard...
-    #root allows us to interpret '/' as something other than the top of the filesystem.
+    # Copy a file or folder from source to destination.
+    # This really shouldn't be so hard...
+    # root allows us to interpret '/' as something other than the top of the filesystem.
     def Copy(this, source, destination, root='/'):
         if (source.startswith('/')):
             source = str(Path(root).joinpath(source[1:]).resolve())
@@ -326,7 +332,7 @@ class UserFunctor(ABC, Datum):
         else:
             logging.error(f"Could not find source to copy: {source}")
 
-    #Delete a file or folder
+    # Delete a file or folder
     def Delete(this, target):
         if (not os.path.exists(target)):
             logging.debug(f"Unable to delete nonexistent target: {target}")
@@ -344,10 +350,10 @@ class UserFunctor(ABC, Datum):
                     src, dst, msg = error
                     logging.debug(f"{msg}")
 
-    #Run whatever.
-    #DANGEROUS!!!!!
-    #RETURN: Return value and, optionally, the output as a list of lines.
-    #per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
+    # Run whatever.
+    # DANGEROUS!!!!!
+    # RETURN: Return value and, optionally, the output as a list of lines.
+    # per https://stackoverflow.com/questions/803265/getting-realtime-output-using-subprocess
     def RunCommand(this, command, saveout=False, raiseExceptions=True):
         logging.debug(f"================ Running command: {command} ================")
         p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
