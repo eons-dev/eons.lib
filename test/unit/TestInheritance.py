@@ -1,48 +1,21 @@
-import pytest
-import logging
-import sys, os
-import eons
-from pathlib import Path
+from StandardTestFixture import StandardTestFixture
+from Includes import Include, GetIncludePath
 
-thisPath = Path(__file__).parent.resolve()
-utilPath = str(thisPath.joinpath("util"))
-classPath = str(thisPath.joinpath("class"))
-registerPath = str(thisPath.joinpath("register"))
+Include('inheritance')
 
-sys.path.append(utilPath)
-sys.path.append(classPath)
+class TestInheritance(StandardTestFixture):
 
-from dotdict import dotdict
-from DummyExecutor import DummyExecutor
+	@classmethod # this is a lie
+	def RegisterDirectories(this):
+		super().RegisterDirectories()
+		this.executor.RegisterAllClassesInDirectory(GetIncludePath('inheritance'))
 
-# Try to get a non-existant SelfRegistering without downloading a package from the infrastructure repository.
-# Should fail.
-def test_inheritance():
+	def test_inheritance_positive_control(this):
+		assert(this.executor.GetRegistered('inheritance_positive_control') is not None)
 
-    executor = DummyExecutor("Test Package Download")
+	def test_inheriting_error_resolution(this):
+		assert(this.executor.GetRegistered('inheriting_error_resolution') is not None)
 
-    # Spoof CLI args.
-    executor.args = dotdict({
-        'no_repo': True,
-        'verbose': 1,
-        'quiet': 0,
-        'config': None
-    })
-    # executor.extraArgs = {
-    #     'repo_store': executor.defaultRepoDirectory,
-    #     'repo_url': 'https://api.infrastructure.tech/v1/package',
-    # }
+	def test_inheriting_external(this):
+		assert(this.executor.GetRegistered('inheriting_external') is not None)
 
-    logging.debug(f"Executor args: {executor.args}")
-    executor()
-    executor.RegisterAllClassesInDirectory(registerPath)
-
-    testCases = [
-        'inheritance_positive_control',
-        'inheriting_error_resolution',
-        'inheriting_endpoint'
-    ]
-
-    for test in testCases:
-        registered = executor.GetRegistered(test)
-        assert (registered is not None)

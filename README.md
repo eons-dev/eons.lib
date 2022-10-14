@@ -1,8 +1,12 @@
-# Eons python framework
+# Eons Python Framework
 
-Generalized framework for doing python things.
+The Eons Python Framework provides a Python counterpart to the [Develop Biology](https://develop.bio) project.
 
-Design in short: Self-registering functors downloaded just-in-time for use with arbitrary data structures.
+Design in short: Self-registering, sequential functors with implicit and automatic inheritance, downloaded just-in-time for use with arbitrary data structures.
+
+Unlike Biology, the Eons library is designed for plug-and-play development. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded, due to Python limitations, while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is limited to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex and build off each other and by loading those operations from the cloud at runtime, we aim to provide the same level of functionality, if not better than what Biology provides by default. Both systems work toward a full implementation of the [Native Biology Syntax](https://github.com/develop-biology/lang_bio).
+
+Once Develop Biology is stable and the Native Biology Syntax is fully developed, the Eons Python Framework and all downstream implementations will be merged into a single, flexible, and optimized solution. However, the in-built reflection features of Biology should make it such that a successful integration means no changes to downstream code. Python can stay python or become any other language you want. Stay tuned!
 
 ## Installation
 `pip install eons`
@@ -10,7 +14,7 @@ Design in short: Self-registering functors downloaded just-in-time for use with 
 ## Usage
 
 This library is intended for consumption by other libraries and executables.
-To create your own executable, override `Executor` to add functionality to your program, then create children of `Datum` and `UserFunctor` for adding your own data structures and operations.
+To create your own executable, override `Executor` to add functionality to your program, then create children of `Datum` and `Functor` for adding your own data structures and operations.
 
 For example implementations, check out:
  * [apie](https://github.com/eons-dev/bin_apie)
@@ -19,8 +23,9 @@ For example implementations, check out:
 
 ## Features
 
-Eons supports 3 major features:
+Eons supports 4 major features:
 * Get inputs to functors by drilling down through multiple layers
+* Allow functors to change behavior with their order of execution
 * Provide functionality by downloading functors on the fly
 * Resolve errors through dynamic resolution by functors
 
@@ -37,6 +42,16 @@ The higher the number on the above list, the higher the precedence of the search
 Downstream implementors of the Eons library may optionally extend the `Fetch()` method to look through whatever layers are appropriate for their inputs.
 
 NOTE: The supplied configuration file must contain only valid json.
+
+### Implicit Inheritance
+
+The purpose of Implicit Inheritance is to provide developers with a tool for separating implementation and usage, thus allowing development to occur in smaller, logical pieces instead of monoliths (even modular ones). Using the Implicit Inheritance system, you can build libraries piece by piece and assemble them in different orders to achieve different results. For example, a `DoStuff` Functor might call `Do(whatever_was_requested)` but might rely on a preceding Functor to implement the `Do()` Method. If both `DoStuffLocally` and `DoStuffRemotely` define `Do()`, we can choose how we want to do stuff entirely by the order of execution. In other words, by choosing which Functor comes before `DoStuff`, you can effectively choose which modules you want in your "implicit library" or "implied base class".
+
+Functors contain a `next` member which enables not just single-function execution but sequences of multiple functions. To maximize the potential these sequences offer, the Eons library allows turning member functions into `Methods` via the `@eons.method()` decorator. Methods are, themselves, Functors and can be transferred to other Functors to dynamically populate the member functions. We have made it so that if you run some sequence like `[FirstFunctor, SecondFunctor]`, the `SecondFunctor` automatically inherits the methods of `FirstFunctor` in addition to being able to access member variables from the `FirstFunctor`. We call this "Implicit Inheritance". Implicit Inheritance is not true inheritance. In the example above `SecondFunctor` does not (have to) share a type with `FirstFunctor` (besides `eons.Functor`). Implicit Inheritance is also determined dynamically at runtime and cannot be (easily) programmed.
+
+Methods do not participate in the main, user-requested sequence; instead, Methods create their own sequence. When a preceding Functor defines the same Method as that currently executing, the current Functor can add the preceding Methods to its own either before or after, as controlled by the configuration of each of the current Functor's Methods. This makes it possible to simply setup or tweak functionality within each Method, thus building a complete function out of many parts.
+
+If that alone wasn't enough, `eons.Method()` also endows you with the ability to change the code that's written before Python interprets it. You can specify `eons.Method(impl='InterpretMyCustomSyntax')` or whatever you would like. Ideally, this will allow us to write Functors using any language. At the very least, we can tweak Python to add things like `++`, etc.
 
 ### Dynamic Functionality via `GetRegistered()`
 
@@ -61,7 +76,7 @@ NOTE: per the above section on the Configuration File, you can set `repo_usernam
 
 ### Error Resolution for `@recoverable` Methods
 
-Any method (i.e. member function) of Executor or UserFunctor may be decorated with `@recoverable`. If a `@recoverable` method raises an Exception, the Eons error resolution system will engage and attempt to fix the problem.
+Any method (i.e. member function) of Executor or Functor may be decorated with `@recoverable`. If a `@recoverable` method raises an Exception, the Eons error resolution system will engage and attempt to fix the problem.
 
 Because there are a lot of ways an error might arise and be resolved, we don't give you the same freedom of execution as we do with generic `GetRegistered()` calls. While we use `GetRegistered()` under-the-hood, all possible `ErrorResolutions` have to be specified ahead of time in your Executor's `resolveErrorsWith` list member.
 
@@ -100,7 +115,7 @@ Each functor supports:
 
 All values provided in these members will be populated by calls to `Fetch()`, as described above. This means that if the user calling your functor does not provide, say their password, it can be automatically looked up in the environment variables.
 
-For other supported features, check out [UserFunctor.py](src/UserFunctor.py)
+For other supported features, check out [Functor.py](src/Functor.py)
 
 
 ### Self Registration
@@ -139,9 +154,9 @@ When extending a program that derives from eons, defer to that program's means o
 
 ### User Functor
 
-UserFunctors store all args passed to them in the `kgwargs` member. While you can check this member directly for arguments, `Fetch(...)` is preferred.
+Functors store all args passed to them in the `kgwargs` member. While you can check this member directly for arguments, `Fetch(...)` is preferred.
 
-When extending `UserFunctor`, please be aware that the following utilities are available to you:
+When extending `Functor`, please be aware that the following utilities are available to you:
 ```python
 #RETURNS: an opened file object for writing.
 #Creates the path if it does not exist.
@@ -164,4 +179,4 @@ def Delete(this, target):
 def RunCommand(this, command, saveout=False, raiseExceptions=True):
     ...
 ```
-The source for these methods is available in UserFunctor.py.
+The source for these methods is available in Functor.py.

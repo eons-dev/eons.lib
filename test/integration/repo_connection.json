@@ -4,10 +4,10 @@
   "clear_build_path" : false,
   "build_in" : "bin_test-executor",
   "next": [
-    {
-      "build" : "py_package",
-      "config" : {
-        "author_name" : "eons",
+	{
+	  "build" : "py_package",
+	  "config" : {
+	    "author_name" : "eons",
         "author_email" : "support@eons.llc",
         "description" : "Test Executor",
         "package_url" : "https://github.com/eons-dev/lib_eons",
