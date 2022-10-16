@@ -1,10 +1,9 @@
 import re
 import logging
-import traceback
 from .Constants import *
 from .Exceptions import *
 from .StandardFunctor import StandardFunctor
-
+from .Utils import util
 
 # Use an ErrorStringParser for each "parsers" in order to avoid having to override the GetObjectFromError method and create a new class for every error you want to handle.
 # ErrorStringParsers enable ErrorResolutions to be created on a per-functionality, rather than per-error basis, reducing the total amount of duplicate code.
@@ -148,8 +147,7 @@ class ErrorResolution(StandardFunctor):
 			this.Resolve()
 		except Exception as e:
 			logging.error(f"Error resolution with {this.name} failed: {e}")
-			if (this.executor.parsedArgs.verbose > 0 and this.executor.parsedArgs.quiet == 0):
-				traceback.print_exc()
+			util.LogStack()
 			this.functionSucceeded = False
 		
 		this.errorResolutionStack[this.errorString].append(this.name)

@@ -1,12 +1,14 @@
 # Eons Python Framework
 
-The Eons Python Framework provides a Python counterpart to the [Develop Biology](https://develop.bio) project.
+The Eons Python Framework provides a Python counterpart to the [Develop Biology](https://develop.bio) project. This means `eons` helps you blur the lines between what it means to be, have, and do. Gone are the days of classes meaning "to be", members meaning "to have", and functions meaning "to do". With Eons and Biology, they are all one and the same. 
 
 Design in short: Self-registering, sequential functors with implicit and automatic inheritance, downloaded just-in-time for use with arbitrary data structures.
 
-Unlike Biology, the Eons library is designed for plug-and-play development. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded, due to Python limitations, while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is limited to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex and build off each other and by loading those operations from the cloud at runtime, we aim to provide the same level of functionality, if not better than what Biology provides by default. Both systems work toward a full implementation of the [Native Biology Syntax](https://github.com/develop-biology/lang_bio).
+## Eons vs Biology
 
-Once Develop Biology is stable and the Native Biology Syntax is fully developed, the Eons Python Framework and all downstream implementations will be merged into a single, flexible, and optimized solution. However, the in-built reflection features of Biology should make it such that a successful integration means no changes to downstream code. Python can stay python or become any other language you want. Stay tuned!
+The Eons library is designed for plug-and-play development, unlike Biology. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded (due to Python limitations), while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is reduced to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex, build off each other, and be loaded from the cloud at runtime, we aim to provide the same level of functionality, if not better, than what Biology provides by default. Both systems work toward a full implementation of the [Native Biology Syntax](https://github.com/develop-biology/lang_bio).
+
+Once Develop Biology is stable and the Native Biology Syntax is fully developed, the Eons Python Framework and all downstream implementations will be merged into a single, flexible, and optimized solution. However, the builtin reflection features of Biology should make it such that a successful integration means no changes to downstream code. Python can stay Python, or become any other language you want. Stay tuned!
 
 ## Installation
 `pip install eons`
@@ -14,7 +16,7 @@ Once Develop Biology is stable and the Native Biology Syntax is fully developed,
 ## Usage
 
 This library is intended for consumption by other libraries and executables.
-To create your own executable, override `Executor` to add functionality to your program, then create children of `Datum` and `Functor` for adding your own data structures and operations.
+To create your own executable, override `Executor` to add functionality to your program then create children of `Datum` and `Functor` for adding your own data structures and operations.
 
 For example implementations, check out:
  * [apie](https://github.com/eons-dev/bin_apie)
@@ -41,15 +43,19 @@ The higher the number on the above list, the higher the precedence of the search
 
 Downstream implementors of the Eons library may optionally extend the `Fetch()` method to look through whatever layers are appropriate for their inputs.
 
+You are also allowed to customize the order of each layer by reordering the `fetchFrom` member (list).
+
 NOTE: The supplied configuration file must contain only valid json.
 
 ### Implicit Inheritance
 
 The purpose of Implicit Inheritance is to provide developers with a tool for separating implementation and usage, thus allowing development to occur in smaller, logical pieces instead of monoliths (even modular ones). Using the Implicit Inheritance system, you can build libraries piece by piece and assemble them in different orders to achieve different results. For example, a `DoStuff` Functor might call `Do(whatever_was_requested)` but might rely on a preceding Functor to implement the `Do()` Method. If both `DoStuffLocally` and `DoStuffRemotely` define `Do()`, we can choose how we want to do stuff entirely by the order of execution. In other words, by choosing which Functor comes before `DoStuff`, you can effectively choose which modules you want in your "implicit library" or "implied base class".
 
-Functors contain a `next` member which enables not just single-function execution but sequences of multiple functions. To maximize the potential these sequences offer, the Eons library allows turning member functions into `Methods` via the `@eons.method()` decorator. Methods are, themselves, Functors and can be transferred to other Functors to dynamically populate the member functions. We have made it so that if you run some sequence like `[FirstFunctor, SecondFunctor]`, the `SecondFunctor` automatically inherits the methods of `FirstFunctor` in addition to being able to access member variables from the `FirstFunctor`. We call this "Implicit Inheritance". Implicit Inheritance is not true inheritance. In the example above `SecondFunctor` does not (have to) share a type with `FirstFunctor` (besides `eons.Functor`). Implicit Inheritance is also determined dynamically at runtime and cannot be (easily) programmed.
+Functors contain a `next` member which enables not just single-function execution but sequences of multiple functions. To maximize the potential these sequences offer, the Eons library allows turning member functions into `Methods` via the `@eons.method()` decorator. Methods are, themselves, Functors and can be transferred to other Functors to dynamically populate member functions. We have made it so that if you run some sequence like `[FirstFunctor, SecondFunctor]`, the `SecondFunctor` automatically inherits the methods of `FirstFunctor` in addition to being able to access member variables from the `FirstFunctor`. We call this "Implicit Inheritance". Implicit Inheritance is not true inheritance. In the example above `SecondFunctor` does not (have to) share a type with `FirstFunctor` (besides `eons.Functor`). Implicit Inheritance is also determined dynamically at runtime and cannot be (easily) programmed.
 
-Methods do not participate in the main, user-requested sequence; instead, Methods create their own sequence. When a preceding Functor defines the same Method as that currently executing, the current Functor can add the preceding Methods to its own either before or after, as controlled by the configuration of each of the current Functor's Methods. This makes it possible to simply setup or tweak functionality within each Method, thus building a complete function out of many parts.
+NOTE: to make a Method available to following Functors, you must set `propagate=True` (e.g. `@eons.method(propagate=True)`) 
+
+Methods do not participate in the main, user-requested sequence; instead, Methods create their own sequence. When a preceding Functor defines the same Method as the Functor currently executing, the current Functor can add the preceding Methods to its own either before or after, as controlled by the configuration of each of the current Functor's Methods. This makes it possible to simply setup or tweak functionality within each Method. Thus, a single function may be assembled from the partial implementations of many different definitions.
 
 If that alone wasn't enough, `eons.Method()` also endows you with the ability to change the code that's written before Python interprets it. You can specify `eons.Method(impl='InterpretMyCustomSyntax')` or whatever you would like. Ideally, this will allow us to write Functors using any language. At the very least, we can tweak Python to add things like `++`, etc.
 
@@ -78,12 +84,12 @@ NOTE: per the above section on the Configuration File, you can set `repo_usernam
 
 Any method (i.e. member function) of Executor or Functor may be decorated with `@recoverable`. If a `@recoverable` method raises an Exception, the Eons error resolution system will engage and attempt to fix the problem.
 
-Because there are a lot of ways an error might arise and be resolved, we don't give you the same freedom of execution as we do with generic `GetRegistered()` calls. While we use `GetRegistered()` under-the-hood, all possible `ErrorResolutions` have to be specified ahead of time in your Executor's `resolveErrorsWith` list member.
+Because there are a lot of ways an error might arise and be resolved, we don't give you the same freedom of execution as we do with generic `GetRegistered()` calls. While we use GetRegistered under-the-hood, all possible ErrorResolutions have to be specified ahead of time in your Executor's `resolveErrorsWith` list member.
 
-If you want to handle errors with your own `ErrorResolution`, simply call `my_executor.resolveErrorsWith('my_fix_everything_functor')` (paraphrasing).
+If you want to handle errors with your own ErrorResolution, simply call `my_executor.resolveErrorsWith.append('my_fix_everything_functor')` (paraphrasing).
 
-Creating `ErrorResolutions` is the same as any other functor. The only difference is that when you derive from `ErrorResolution` most of the logic you need has been taken care of for you. You'll just have to implement a `Resolve(this)` method and call `this.ApplyTo(...)` in your constructor.  
-NOTE: all ErrorResolution packages should have the `resolve_` prefix so that they may be readily identified online.
+Creating ErrorResolutions is the same as any other Functor. The only difference is that when you derive from ErrorResolution most of the logic you need has been taken care of for you. You'll just have to implement a `Resolve(this)` method and call `this.ApplyTo(...)` in your constructor.  
+NOTE: all ErrorResolution packages should have the 'resolve_' prefix so that they may be readily identified online.
 
 Check out [install_from_repo](inc/resolve/resolve_install_from_repo.py) for an example.
 
@@ -100,20 +106,22 @@ Functors. Functors...
 ### Functors
 
 Functors are classes (objects) that have an invokable `()` operator. This allows you to treat them like functions.
-Eons uses functors to provide input, analysis, and output functionalities, which are made simple by classical inheritance.
+Eons uses functors (implemented as the Functor class) to provide input, analysis, and output functionalities, which are made simple through classical and implicit inheritance.
 
-Imagine you write 2 functions that take inputs `a` and `b`. You can choose to duplicate these inputs, as is the classic means of writing functions: `firstFunction(a, b)` and `secondFunction(a, b)`. However, with functors, you can make `baseFunctor{inputs=[a,b]}` and then simply `firstFunctor(baseFunctor)` and `secondFunctor(baseFunctor)`, thus creating 2 functors with identical inputs. The result of `firstFunctor(a, b) == firstFunction(a, b)` and likewise for the seconds; only, by using functors we've saved ourselves from duplicating code.
+Imagine you write 2 functions that take inputs `a` and `b`. You can choose to duplicate these inputs, as is the classic means of writing functions: `firstFunction(a, b)` and `secondFunction(a, b)`. However, with Functors, you can make `baseFunctor{inputs=[a,b]}` and then simply `firstFunctor(baseFunctor)` and `secondFunctor(baseFunctor)`, thus creating 2 Functors with identical inputs. The result of `firstFunctor(a, b) == firstFunction(a, b)` and likewise for the seconds; only, by using Functors we've saved ourselves from duplicating code.
 
 ### Inputs
 
-For extensibility, all functors take a `**kwargs` argument when called. This allows you to provide arbitrary key word arguments (e.g. key="value") to your objects.
+For extensibility, all Functors take both an `*args` and `**kwargs` argument when called. This allows you to provide arbitrary key word arguments (e.g. key="value") to your objects.
 
 Each functor supports:
 * `requiredKWArgs` - the arguments which the functor cannot be called without.
 * `staticKWArgs` - also required arguments but which are only `Fetch()`ed once.
 * `optionalKWArgs` - arguments which have a default and do not have to be supplied.
 
-All values provided in these members will be populated by calls to `Fetch()`, as described above. This means that if the user calling your functor does not provide, say their password, it can be automatically looked up in the environment variables.
+Non-key-word arguments can be specified by appending valid key-word arguments to the `argMapping` member (list). You cannot directly set the implicit args (how would we know what to call them?).
+
+All values provided in these members will be populated by calls to `Fetch()`, as described above. This means that if the user calling your Functor does not provide, say their password, it can be automatically looked up in the environment variables.
 
 For other supported features, check out [Functor.py](src/Functor.py)
 
@@ -179,4 +187,4 @@ def Delete(this, target):
 def RunCommand(this, command, saveout=False, raiseExceptions=True):
     ...
 ```
-The source for these methods is available in Functor.py.
+The source for these methods is available in [Functor.py](src/Functor.py).

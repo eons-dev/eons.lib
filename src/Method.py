@@ -39,7 +39,7 @@ def method(impl='Method', **kwargs):
 				setattr(method, key, value)
 
 			# Store the new method in the class
-			if (not hasattr(cls, 'classMethods') or not isinstance(cls.classMethods, list)):
+			if (not hasattr(cls, 'classMethods') or not isinstance(cls.classMethods, dict)):
 				cls.classMethods = {}
 			cls.classMethods[functionName] = method
 
@@ -89,7 +89,7 @@ class Method(Functor):
 
 	# Make *this execute the code in this.source
 	def UpdateSource(this):
-		wrappedFunctionName = f'_wrapped_{this.name}'
+		wrappedFunctionName = f'_eons_method_{this.name}'
 		completeSource = f'''\
 def {wrappedFunctionName}(this):
 {this.source}
@@ -148,7 +148,7 @@ def {wrappedFunctionName}(this):
 
 
 	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.
-	def ParseInitialArgs(this):
+	def PopulatePrecursor(this):
 		if (not this.object):
 			raise MissingArgumentError(f"Call {this.name} from a class instance: {this.original.cls.__name__}.{this.name}(...). Maybe Functor.PopulateMethods() hasn't been called yet?")
 
@@ -159,9 +159,19 @@ def {wrappedFunctionName}(this):
 		else:
 			this.precursor = None
 
+
+	# Next is set by Functor.PopulateMethods.
+	# We  definitely don't want to Fetch 'next'.
+	def PopulateNext(this):
+		pass
+
+
 	# Method.next should be a list of other Methods, as opposed to the standard string; so, instead of Executor.Execute..., we can directly invoke whatever is next.
 	# We skip all validation here.
 	# We also don't pass any args that were given in the initial function call. Those can all be Fetched from 'precursor'.
 	def CallNext(this):
+		if (not this.next):
+			return None
+
 		for next in this.next:
 			next(precursor=this)

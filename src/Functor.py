@@ -1,7 +1,6 @@
 import logging
 import os
 import shutil
-import traceback
 from copy import deepcopy
 from .Constants import *
 from .Datum import Datum
@@ -22,13 +21,15 @@ class Functor(Datum):
 	def __init__(this, name=INVALID_NAME()):
 		super().__init__(name)
 
+		this.initialized = False
+
 		# All necessary args that *this cannot function without.
 		this.requiredKWArgs = []
 
 		# Static arguments are Fetched when *this is first called and never again.
 		# All static arguments are required.
 		this.staticKWArgs = []
-		this.initialized = False
+		this.staticArgsValid = False
 
 		# Because values can be Fetched from *this, values that should be provided in arguments will be ignored in favor of those Fetched by a previous call to *this.
 		# Thus, we can't enable 'this' when Fetching required or optional KWArgs (this is done for you in ValidateArgs)
@@ -51,8 +52,8 @@ class Functor(Datum):
 		this.fetchFrom = [
 			'this',
 			'args',
-			'precursor',
 			'config', #local (if applicable) or per Executor; should be before 'executor' if using a local config.
+			'precursor',
 			'executor',
 			'environment',
 		]
@@ -71,7 +72,7 @@ class Functor(Datum):
 		# You probably don't need to change this.
 		# Similar to fetchFrom, methodSources lists where methods should be populated from and in what order
 		# Each entry is a key-value pair representing the accessible member (member's members okay) and whether or not to honor Method.propagate.
-		# If the value is False, all methods will be added to *this.methods. Otherwise, only methods with propagate == True will be. When in doubt, prefer True.
+		# If the value is False, all methods will be added to *this.methods and will overwrite any existing methods. Otherwise, only methods with propagate == True will be added and combined with existing methods. When in doubt, prefer True.
 		this.methodSources = {
 			'classMethods': False, # classMethods is created when a class uses @method()s
 			'precursor.methods': True
@@ -139,6 +140,11 @@ class Functor(Datum):
 		return this.rollbackSucceeded
 
 
+	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.
+	def ParseInitialArgs(this):
+		pass
+
+
 	# Override this with any logic you'd like to run at the top of __call__
 	def BeforeFunction(this):
 		pass
@@ -147,7 +153,6 @@ class Functor(Datum):
 	# Override this with any logic you'd like to run at the bottom of __call__
 	def AfterFunction(this):
 		pass
-
 
 	# Create a list of methods / member functions which will search different places for a variable.
 	# See the end of the file for examples of these methods.
@@ -158,21 +163,6 @@ class Functor(Datum):
 		except:
 			# If the user didn't define fetch_location_{loc}(), that's okay. No need to complain
 			pass
-
-
-	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.
-	def ParseInitialArgs(this):
-		if (not isinstance(this, Executor) or this.executor is None):
-			if ('executor' in this.kwargs):
-				this.executor = this.kwargs.pop('executor')
-			else:
-				logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
-
-			# Executors have no precursors
-			if ('precursor' in this.kwargs):
-					this.precursor = this.kwargs.pop('precursor')
-			else:
-				this.precursor = None
 
 
 	# Convert Fetched values to their proper type.
@@ -249,9 +239,22 @@ class Functor(Datum):
 	# RETURNS:
 	#   When starting: the value of the given variable or default
 	#   When not starting (i.e. when called from another Fetch() call): a tuple containing either the value of the given variable or default and a boolean indicating if the given value is the default or if the Fetch was successful.
-	def Fetch(this, varName, default=None, fetchFrom=None, start=True):
+	# The attempted argument will keep track of where we've looked so that we don't enter any cycles. Attempted implies not start.
+	def Fetch(this, varName, default=None, fetchFrom=None, start=True, attempted=None):
+		if (attempted is None):
+			attempted = []
+
+		if (this.name in attempted):
+			logging.debug(f"...{this.name} detected loop ({attempted}) while trying to fetch {varName}; using default: {default}.")
+			if (start):
+				return default
+			else:
+				return default, False
+
+		attempted.append(this.name)
+
 		if (start):
-			logging.debug(f"Fetching {varName}...")
+			logging.debug(f"Fetching {varName} from {fetchFrom}...")
 
 		if (fetchFrom is None):
 			fetchFrom = this.fetchFrom
@@ -261,40 +264,41 @@ class Functor(Datum):
 				# Maybe the location is meant for executor, precursor, etc.
 				continue
 
-			ret, found = this.fetchLocations[loc](varName, default, fetchFrom)
+			ret, found = this.fetchLocations[loc](varName, default, fetchFrom, attempted)
 			if (found):
-				logging.debug(f"...got {varName} from {loc} in {this.name}.")
+				logging.debug(f"...{this.name} got {varName} from {loc}.")
 				if (start):
 					return ret
 				return ret, True
 
 		if (start):
+			logging.debug(f"...{this.name} could not find {varName}; using default: {default}.")
 			return default
 		else:
 			return default, False
 
 
 	# Ease of use method for Fetching while including certain search locations.
-	def FetchWith(this, doFetchFrom, varName, default=None, currentFetchFrom=None, start=True):
+	def FetchWith(this, doFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
 			currentFetchFrom = this.fetchFrom
 		fetchFrom = list(set(currentFetchFrom + doFetchFrom))
-		return this.Fetch(varName, default, fetchFrom, start)
+		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 	# Ease of use method for Fetching while excluding certain search locations.
-	def FetchWithout(this, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True):
+	def FetchWithout(this, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
 			currentFetchFrom = this.fetchFrom
 		fetchFrom = [f for f in this.fetchFrom if f not in dontFetchFrom]
-		return this.Fetch(varName, default, fetchFrom, start)
+		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 	# Ease of use method for Fetching while including some search location and excluding others.
-	def FetchWithAndWithout(this, doFetchFrom, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True):
+	def FetchWithAndWithout(this, doFetchFrom, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
 			currentFetchFrom = this.fetchFrom
 		fetchFrom = [f for f in this.fetchFrom if f not in dontFetchFrom]
 		fetchFrom = list(set(fetchFrom + doFetchFrom))
-		return this.Fetch(varName, default, fetchFrom, start)
+		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 
 	# Make sure arguments are not duplicated.
@@ -326,6 +330,13 @@ class Functor(Datum):
 			if (shutil.which(prog) is None):
 				raise FunctorError(f"{prog} required but not found in path.")
 
+		this.initialized = True
+
+	# Make sure all static args are valid.
+	def ValidateStaticArgs(this):
+		if (this.staticArgsValid):
+			return
+
 		for skw in this.staticKWArgs:
 			if (hasattr(this, skw)): # only in the case of children.
 				continue
@@ -338,10 +349,11 @@ class Functor(Datum):
 			# Nope. Failed.
 			raise MissingArgumentError(f"Static key-word argument {skw} could not be Fetched.")
 
-		this.initialized = True
+		this.staticArgsValid = True
 
 
 	# Pull all propagating precursor methods into *this.
+	# DO NOT USE Fetch() IN THIS METHOD!
 	def PopulateMethods(this):
 
 		# In order for this to work properly, each method needs to be a distinct object; hence the need for deepcopy.
@@ -355,7 +367,7 @@ class Functor(Datum):
 			for method in util.GetAttr(this, source).values():
 				if (honorPropagate and not method.propagate):
 					continue
-				if (method.name in this.methods.keys()):
+				if (method.name in this.methods.keys() and honorPropagate):
 					existingMethod = this.methods[method.name]
 					if (not existingMethod.inheritMethods):
 						continue
@@ -363,16 +375,37 @@ class Functor(Datum):
 					methodToInsert = deepcopy(method)
 
 					if (existingMethod.inheritedMethodsFirst):
+						logging.debug(f"Will call {method.name} from {source} to prior to this.")
 						methodToInsert.next.append(this.methods[method.name])
 						this.methods[method.name] = methodToInsert
 					else:
+						logging.debug(f"Appending {method.name} from {source} to this.")
 						this.methods[method.name].next.append(methodToInsert)
 				else:
 					this.methods[method.name] = deepcopy(method)
 
 		for method in this.methods.values():
+			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
 			method.object = this
 			setattr(this, method.name, method.__call__.__get__(this, this.__class__)) #...
+
+
+	# Set this.precursor
+	# Also set this.executor because it's easy.
+	def PopulatePrecursor(this):
+		if (not isinstance(this, Executor) or this.executor is None):
+			if ('executor' in this.kwargs):
+				this.executor = this.kwargs.pop('executor')
+			else:
+				logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
+
+			# Executors have no precursors
+			if ('precursor' in this.kwargs):
+				this.precursor = this.kwargs.pop('precursor')
+				logging.debug(f"{this.name} was preceded by {this.precursor.name}")
+			else:
+				this.precursor = None
+				logging.debug(f"{this.name} was preceded by None")
 
 
 	# Override this with any additional argument validation you need.
@@ -416,10 +449,9 @@ class Functor(Datum):
 	def PopulateNext(this):
 		dontFetchFrom = [
 			'this',
-			'environment'
+			'environment',
+			'executor'
 		]
-		if (this.precursor is not None):
-			dontFetchFrom.append('executor')
 		this.Set('next', this.FetchWithout(dontFetchFrom, 'next', []))
 
 
@@ -450,10 +482,13 @@ class Functor(Datum):
 		if (not this.next):
 			return None
 
+		if (this.GetExecutor() is None):
+			logging.warning(f"{this.name} has no executor and cannot execute next ({this.next}).")
+
 		next = this.next.pop(0)
 		if (not this.ValidateNext(next)):
 			raise InvalidNext(f"Failed to validate {next}")
-		return this.executor.Execute(next, precursor=this, next=this.next)
+		return this.GetExecutor().Execute(next, precursor=this, next=this.next)
 
 
 	# Make functor.
@@ -469,9 +504,11 @@ class Functor(Datum):
 		ret = None
 		nextRet = None
 		try:
-			this.ParseInitialArgs()
-			this.PopulateMethods()
+			this.PopulatePrecursor()
 			this.Initialize() # nop on call 2+
+			this.PopulateMethods() # Doesn't require Fetch; depends on precursor
+			this.ParseInitialArgs() # Usually where config is read in.
+			this.ValidateStaticArgs() # nop on call 2+
 			this.ValidateArgs()
 			this.PopulateNext()
 			this.ValidateMethods()
@@ -505,7 +542,7 @@ class Functor(Datum):
 				raise e
 			else:
 				logging.error(f"ERROR: {e}")
-				traceback.print_exc()
+				util.LogStack()
 
 		if (this.raiseExceptions and this.result > 2):
 			raise FunctorError(f"{this.name} failed with result {this.result}")
@@ -525,19 +562,19 @@ class Functor(Datum):
 
 	######## START: Fetch Locations ########
 
-	def fetch_location_this(this, varName, default, fetchFrom):
+	def fetch_location_this(this, varName, default, fetchFrom, attempted):
 		if (hasattr(this, varName)):
 			return getattr(this, varName), True
 		return default, False
 
 
-	def fetch_location_precursor(this, varName, default, fetchFrom):
+	def fetch_location_precursor(this, varName, default, fetchFrom, attempted):
 		if (this.precursor is None):
 			return default, False
-		return this.precursor.FetchWithAndWithout(['this'], ['environment'], varName, default, fetchFrom, start=False)
+		return this.precursor.FetchWithAndWithout(['this'], ['environment'], varName, default, fetchFrom, False, attempted)
 
 
-	def fetch_location_args(this, varName, default, fetchFrom):
+	def fetch_location_args(this, varName, default, fetchFrom, attempted):
 
 		# this.args can't be searched.
 
@@ -549,12 +586,12 @@ class Functor(Datum):
 
 	# Call the Executor's Fetch method.
 	# Exclude 'environment' because we can check that ourselves.
-	def fetch_location_executor(this, varName, default, fetchFrom):
-		return this.GetExecutor().FetchWithout(['environment'], varName, default, fetchFrom, start=False)
+	def fetch_location_executor(this, varName, default, fetchFrom, attempted):
+		return this.GetExecutor().FetchWithout(['environment'], varName, default, fetchFrom, False, attempted)
 
 
 	#NOTE: There is no config in the default Functor. This is done for the convenience of children.
-	def fetch_location_config(this, varName, default, fetchFrom):
+	def fetch_location_config(this, varName, default, fetchFrom, attempted):
 		if (not hasattr(this, 'config') or this.config is None):
 			return default, False
 
@@ -565,7 +602,7 @@ class Functor(Datum):
 		return default, False
 
 
-	def fetch_location_environment(this, varName, default, fetchFrom):
+	def fetch_location_environment(this, varName, default, fetchFrom, attempted):
 		envVar = os.getenv(varName)
 		if (envVar is not None):
 			return envVar, True

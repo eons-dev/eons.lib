@@ -56,7 +56,7 @@ class StandardFunctor(Functor):
 		
 		destination = str(Path(destination).resolve())
 		
-		Path(os.path.dirname(os.path.abspath(destination))).mkdir(parents=True, exist_ok=True)
+		Path(destination).parent.mkdir(parents=True, exist_ok=True)
 
 		if (os.path.isfile(source)):
 			logging.debug(f"Copying file {source} to {destination}")

@@ -69,6 +69,7 @@ class Executor(DataContainer, Functor):
 		this.defaultPrefix = ""
 
 		this.Configure()
+		this.RegisterIncludedClasses()
 		this.AddArgs()
 
 
@@ -111,7 +112,7 @@ class Executor(DataContainer, Functor):
 	# Global logging config.
 	# Override this method to disable or change.
 	def SetupLogging(this):
-		logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S')
+		logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S', force=True)
 
 
 	# Adds command line arguments.
@@ -154,17 +155,25 @@ class Executor(DataContainer, Functor):
 		if (this.parsedArgs.config is None):
 			this.parsedArgs.config = this.defaultConfigFile
 
-		if (this.parsedArgs.config is not None and os.path.isfile(this.parsedArgs.config)):
-			configFile = open(this.parsedArgs.config, "r")
-			this.config = jsonpickle.decode(configFile.read())
-			configFile.close()
-			logging.debug(f"Got config contents: {this.config}")
+		logging.debug(f"Populating config from {this.parsedArgs.config}")
+
+		if (this.parsedArgs.config is None):
+			return
+
+		if (not os.path.isfile(this.parsedArgs.config)):
+			logging.error(f"Could not open configuration file: {this.parsedArgs.config}")
+			return
+
+		configFile = open(this.parsedArgs.config, "r")
+		this.config = jsonpickle.decode(configFile.read())
+		configFile.close()
+		logging.debug(f"Got config contents: {this.config}")
 
 
 	#  Get information for how to download packages.
 	def PopulateRepoDetails(this):
 		details = {
-			"online": this.parsedArgs.no_repo,
+			"online": not this.parsedArgs.no_repo,
 			"store": this.defaultRepoDirectory,
 			"url": "https://api.infrastructure.tech/v1/package",
 			"username": None,
@@ -188,6 +197,8 @@ class Executor(DataContainer, Functor):
 		elif (this.parsedArgs.quiet > 1):
 			logging.getLogger().setLevel(logging.ERROR)
 
+		logging.debug(f"<---- {this.name} (log level: {logging.getLogger().level}) ---->")
+
 		extraArgsKeys = []
 		for index in range(0, len(extraArgs), 2):
 			keyStr = extraArgs[index]
@@ -206,32 +217,34 @@ class Executor(DataContainer, Functor):
 	# We have to ParseArgs() here in order for other Executors to use ____KWArgs...
 	def ParseInitialArgs(this):
 		this.ParseArgs() # first, to enable debug and other such settings.
-		this.RegisterIncludedClasses()
-
-
-	# Functor method.
-	def BeforeFunction(this):
 		this.PopulateConfig()
 		this.PopulateRepoDetails()
-		
+
 		
 	# Functor required method
 	# Override this with your own workflow.
 	def Function(this):
 		this.RegisterAllClasses()
 		this.InitData()
+
+
+	# By default, Executors do not act on this.next; instead, they make it available to all Executed Functors.
+	def CallNext(this):
+		pass
 		
 
 	# Execute a Functor based on name alone (not object).
 	# If the given Functor has been Executed before, the cached Functor will be called again. Otherwise, a new Functor will be constructed.
 	@recoverable
 	def Execute(this, functorName, *args, **kwargs):
-		if (functorName in this.cachedFunctors):
-			return this.cachedFunctors[functorName](executor=this, **kwargs)
-
 		prefix = this.defaultPrefix
 		if ('prefix' in kwargs):
 			prefix = kwargs.pop('prefix')
+
+		logging.debug(f"Executing {functorName}({', '.join([str(a) for a in args] + [k+'='+str(v) for k,v in kwargs.items()])})")
+
+		if (functorName in this.cachedFunctors):
+			return this.cachedFunctors[functorName](*args, **kwargs, executor=this)
 
 		functor = this.GetRegistered(functorName, prefix)
 		this.cachedFunctors.update({functorName: functor})
@@ -382,7 +395,7 @@ class Executor(DataContainer, Functor):
 
 	######## START: Fetch Locations ########
 
-	def fetch_location_args(this, varName, default, fetchFrom):
+	def fetch_location_args(this, varName, default, fetchFrom, attempted):
 		for key, val in this.extraArgs.items():
 			if (key == varName):
 				return val, True

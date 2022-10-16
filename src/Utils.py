@@ -1,3 +1,5 @@
+import traceback
+import logging
 from .Exceptions import *
 from copy import deepcopy
 
@@ -38,3 +40,7 @@ class util:
 	def SetAttr(obj, attrStr):
 		raise NotImplementedError(f"util.SetAttr has not been implemented yet.")
 
+
+	@staticmethod
+	def LogStack():
+		logging.debug(traceback.format_exc())

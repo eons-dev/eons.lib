@@ -1,7 +1,7 @@
 import logging
-import traceback
 #from .Executor import Executor # don't import this, it'll be circular!
 from .Exceptions import *
+from .Utils import util
 
 # @recoverable
 # Decorating another function with this method will engage the error recovery system provided by *this.
@@ -24,8 +24,7 @@ def RecoverableImplementation(obj, executor, function, *args, **kwargs):
 			raise e
 
 		logging.warning(f"Got error '{e}' from function ({function}) by {obj.name}.")
-		if (executor.parsedArgs.verbose > 0 and executor.parsedArgs.quiet == 0):
-			traceback.print_exc()
+		util.LogStack()
 
 		# We have to use str(e) instead of pointers to Exception objects because multiple Exceptions will have unique addresses but will still be for the same error, as defined by string comparison.
 		if (str(e) not in executor.errorResolutionStack.keys()):
