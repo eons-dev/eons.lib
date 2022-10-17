@@ -28,7 +28,17 @@
       "build_in" : "./",
       "config" : {
         "clear_build_path" : false,
-        "test_path" : "./test/unit/"
+        "test_path" : "./test/unit/",
+        "next" : [
+          {
+            "build" : "test",
+            "build_in" : "./",
+            "config": {
+              "test_path" : "./test/integration/",
+              "test_fixture" : "repo_connection.json"
+            }
+          }
+        ]
       }
     }
   ]
