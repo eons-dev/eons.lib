@@ -253,11 +253,11 @@ class Functor(Datum):
 
 		attempted.append(this.name)
 
-		if (start):
-			logging.debug(f"Fetching {varName} from {fetchFrom}...")
-
 		if (fetchFrom is None):
 			fetchFrom = this.fetchFrom
+
+		if (start):
+			logging.debug(f"Fetching {varName} from {fetchFrom}...")
 
 		for loc in fetchFrom:
 			if (loc not in this.fetchLocations.keys()):
@@ -393,13 +393,12 @@ class Functor(Datum):
 	# Set this.precursor
 	# Also set this.executor because it's easy.
 	def PopulatePrecursor(this):
-		if (not isinstance(this, Executor) or this.executor is None):
+		if (this.executor is None):
 			if ('executor' in this.kwargs):
 				this.executor = this.kwargs.pop('executor')
 			else:
 				logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
-			# Executors have no precursors
 			if ('precursor' in this.kwargs):
 				this.precursor = this.kwargs.pop('precursor')
 				logging.debug(f"{this.name} was preceded by {this.precursor.name}")

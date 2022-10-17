@@ -28,8 +28,7 @@ class StandardTestFixture(object):
 		# Spoof CLI args.
 		this.executor.parsedArgs = eons.util.DotDict({
 			'no_repo': True,
-			'verbose': 1,
-			'quiet': 0,
+			'verbose': 3,
 			'config': None
 		})
 		this.executor.extraArgs = {}

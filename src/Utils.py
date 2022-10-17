@@ -44,3 +44,67 @@ class util:
 	@staticmethod
 	def LogStack():
 		logging.debug(traceback.format_exc())
+
+
+	class console:
+
+		# Read this (just do it): https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
+
+		saturationCode = {
+			'dark': 3,
+			'light': 9
+		}
+
+		foregroundCodes = {
+			'black': 0,
+			'red': 1,
+			'green': 2,
+			'yellow': 3,
+			'blue': 4,
+			'magenta': 5,
+			'cyan': 6,
+			'white': 7
+		}
+
+		backgroundCodes = {
+			'none': 0,
+			'black': 40,
+			'red': 41,
+			'green': 42,
+			'yellow': 43,
+			'blue': 44,
+			'magenta': 45,
+			'cyan': 46,
+			'white': 47,
+		}
+
+		styleCodes = {
+			'none': 0,
+			'bold': 1,
+			'faint': 2, # Not widely supported.
+			'italic': 3, # Not widely supported.
+			'underline': 4,
+			'blink_slow': 5,
+			'blink_fast': 6, # Not widely supported.
+			'invert': 7,
+			'conceal': 8, # Not widely supported.
+			'strikethrough': 9, # Not widely supported.
+			'frame': 51,
+			'encircle': 52,
+			'overline': 53
+		}
+
+		@classmethod
+		def GetColorCode(cls, foreground, saturation='dark', background='none', styles=None):
+			if (styles is None):
+				styles = []
+			#\x1b may also work.
+			compiledCode = f"\033[{cls.saturationCode[saturation]}{cls.foregroundCodes[foreground]}"
+			if (background != 'none'):
+				compiledCode += f";{cls.backgroundCodes[background]}"
+			if (styles):
+				compiledCode += ';' + ';'.join([str(cls.styleCodes[s]) for s in styles])
+			compiledCode += 'm'
+			return compiledCode
+
+		resetStyle = "\033[0m"

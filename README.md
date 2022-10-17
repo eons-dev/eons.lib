@@ -23,6 +23,12 @@ For example implementations, check out:
  * [ebbs](https://github.com/eons-dev/bin_ebbs)
  * [emi](https://github.com/eons-dev/bin_emi)
 
+Arguments available to all Eons Executors:
+* `-v` or `--verbose` (count, i.e `-vv` = 2) or `--verbosity #`, where # is some number, or the `verbosity` environment or config value: will show more information and increase the logging level, e.g. print debug messages (3 for debug; 2 for info).
+* `--config` or `-c` (string): the path to a json config file from which other values may be retrieved.
+* `--no-repo` or the `no_repo` environment or config value (bool, i.e. 'True', 'true', etc.): whether or not to enable reaching out to online servers for code (see Dynamic Functionality, below).
+* `--log-file` or the `log_file` environment or config value (string; supports formatting, e.g. '/var/log/eons/{this.name}.log'): optional value for logging to a file in addition to stderr.
+
 ## Features
 
 Eons supports 4 major features:
@@ -49,7 +55,7 @@ NOTE: The supplied configuration file must contain only valid json.
 
 ### Implicit Inheritance
 
-The purpose of Implicit Inheritance is to provide developers with a tool for separating implementation and usage, thus allowing development to occur in smaller, logical pieces instead of monoliths (even modular ones). Using the Implicit Inheritance system, you can build libraries piece by piece and assemble them in different orders to achieve different results. For example, a `DoStuff` Functor might call `Do(whatever_was_requested)` but might rely on a preceding Functor to implement the `Do()` Method. If both `DoStuffLocally` and `DoStuffRemotely` define `Do()`, we can choose how we want to do stuff entirely by the order of execution. In other words, by choosing which Functor comes before `DoStuff`, you can effectively choose which modules you want in your "implicit library" or "implied base class".
+The purpose of Implicit Inheritance is to provide developers with a tool for separating implementation and usage, thus allowing development to occur in smaller, logical pieces instead of monoliths (even modular ones). Using the Implicit Inheritance system, you can build libraries piece by piece and assemble them in different orders to achieve different results. For example, a `DoStuff` Functor might call `Do(whatever_was_requested)` but might rely on a preceding Functor to implement the `Do()` Method. If both `DoStuffLocally` and `DoStuffRemotely` both define `Do()`, we can choose how we want to do stuff entirely by the order of execution (i.e. locally vs remotely, in this case). In other words, by choosing which Functor comes before `DoStuff`, you can effectively choose which members and methods you want to include in your "implicit library" or "implied base class".
 
 Functors contain a `next` member which enables not just single-function execution but sequences of multiple functions. To maximize the potential these sequences offer, the Eons library allows turning member functions into `Methods` via the `@eons.method()` decorator. Methods are, themselves, Functors and can be transferred to other Functors to dynamically populate member functions. We have made it so that if you run some sequence like `[FirstFunctor, SecondFunctor]`, the `SecondFunctor` automatically inherits the methods of `FirstFunctor` in addition to being able to access member variables from the `FirstFunctor`. We call this "Implicit Inheritance". Implicit Inheritance is not true inheritance. In the example above `SecondFunctor` does not (have to) share a type with `FirstFunctor` (besides `eons.Functor`). Implicit Inheritance is also determined dynamically at runtime and cannot be (easily) programmed.
 

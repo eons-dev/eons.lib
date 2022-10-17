@@ -53,9 +53,16 @@ class Executor(DataContainer, Functor):
 		this.argparser = argparse.ArgumentParser(description = descriptionStr)
 		this.parsedArgs = None
 		this.extraArgs = None
+		
+		# How much information should we output?
+		this.verbosity = 0
 
 		# config is loaded with the contents of a JSON config file specified by --config / -c or by the defaultConfigFile location, below.
 		this.config = None
+
+		# Where should we log to?
+		# Set by Fetch('log_file')
+		this.log_file = None
 
 		# All repository configuration.
 		this.repo = util.DotDict()
@@ -87,7 +94,7 @@ class Executor(DataContainer, Functor):
 
 		if (this.errorRecursionDepth):
 			this.errorRecursionDepth = this.errorRecursionDepth - 1
-		
+
 		if (not this.errorRecursionDepth):
 			this.errorResolutionStack = {}
 
@@ -112,16 +119,64 @@ class Executor(DataContainer, Functor):
 	# Global logging config.
 	# Override this method to disable or change.
 	def SetupLogging(this):
-		logging.basicConfig(level = logging.INFO, format = '%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)', datefmt = '%H:%M:%S', force=True)
+		class CustomFormatter(logging.Formatter):
+
+			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s'
+			format = ' [%(levelname)4s] %(message)s '
+			postFormat = util.console.GetColorCode('white', 'dark') + '(%(filename)s:%(lineno)s)' + util.console.resetStyle
+
+			formats = {
+				logging.DEBUG: preFormat + util.console.GetColorCode('cyan', 'dark') + format + postFormat,
+				logging.INFO: preFormat + util.console.GetColorCode('white', 'light') + format + postFormat,
+				logging.WARNING: preFormat + util.console.GetColorCode('yellow', 'light') + format + postFormat,
+				logging.ERROR: preFormat + util.console.GetColorCode('red', 'dark') + format + postFormat,
+				logging.CRITICAL: preFormat + util.console.GetColorCode('red', 'light', styles=['bold']) + format + postFormat
+			}
+
+			def format(this, record):
+				log_fmt = this.formats.get(record.levelno)
+				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
+				return formatter.format(record)
+
+		logging.getLogger().handlers.clear()
+		stderrHandler = logging.StreamHandler()
+		stderrHandler.setLevel(logging.CRITICAL)
+		stderrHandler.setFormatter(CustomFormatter())
+		logging.getLogger().addHandler(stderrHandler)
+
+
+	# Logging to stderr is easy, since it will always happen.
+	# However, we also want the user to be able to log to a file, possibly set in the config.json, which requires a Fetch().
+	# Thus, setting up the log file handler has to occur later than the initial SetupLogging call.
+	def SetLogFile(this):
+		this.Set('log_file', this.Fetch('log_file', None, ['args', 'config', 'environment']))
+		if (this.log_file is None):
+			return
+
+		log_filePath = Path(this.log_file).resolve()
+		if (not log_filePath.exists()):
+			log_filePath.parent.mkdir(parents=True, exist_ok=True)
+			log_filePath.touch()
+
+		this.log_file = str(log_filePath) # because resolve() is nice.
+		logging.info(f"Will log to {this.log_file}")
+
+		logFormatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)')
+		fileHandler = logging.FileHandler(this.log_file)
+		fileHandler.setFormatter(logFormatter)
+		fileHandler.setLevel(logging.DEBUG)
+		logging.getLogger().addHandler(fileHandler)
 
 
 	# Adds command line arguments.
 	# Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
 	def AddArgs(this):
 		this.argparser.add_argument('--verbose', '-v', action='count', default=0)
-		this.argparser.add_argument('--quiet', '-q', action='count', default=0)
 		this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
-		this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
+
+		# We'll use Fetch instead
+		# this.argparser.add_argument('--log', '-l', type=str, default=None, help='Path to log file.', dest='log')
+		# this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
 
 	# Create any sub-class necessary for child-operations
@@ -141,12 +196,18 @@ class Executor(DataContainer, Functor):
 			this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath(path)))
 
 
+	# Executors should not have precursors
+	def PopulatePrecursor(this):
+		this.executor = this
+		pass
+
+
 	# Register all classes in each directory in this.registerDirectories
 	def RegisterAllClasses(this):
 		for d in this.registerDirectories:
 			this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
 		this.RegisterAllClassesInDirectory(this.repo.store)
-		
+
 
 	# Populate the configuration details for *this.
 	def PopulateConfig(this):
@@ -167,13 +228,12 @@ class Executor(DataContainer, Functor):
 		configFile = open(this.parsedArgs.config, "r")
 		this.config = jsonpickle.decode(configFile.read())
 		configFile.close()
-		logging.debug(f"Got config contents: {this.config}")
 
 
 	#  Get information for how to download packages.
 	def PopulateRepoDetails(this):
 		details = {
-			"online": not this.parsedArgs.no_repo,
+			"online": not this.Fetch('no_repo', False, ['this', 'args', 'config']),
 			"store": this.defaultRepoDirectory,
 			"url": "https://api.infrastructure.tech/v1/package",
 			"username": None,
@@ -183,21 +243,34 @@ class Executor(DataContainer, Functor):
 			this.repo[key] = this.Fetch(f"repo_{key}", default=default)
 
 
+	# How do we get the verbosity level and what do we do with it?
+	# This method should set log levels, etc.
+	def SetVerbosity(this):
+
+		# Take the highest of -v vs --verbosity
+		verbosity = this.Fetch('verbosity', 0, ['args', 'config', 'environment'])
+		if (verbosity > this.verbosity):
+			logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
+			this.verbosity = verbosity
+
+		if (this.parsedArgs.verbose == 1):
+			logging.getLogger().handlers[0].setLevel(logging.WARNING)
+			logging.getLogger().setLevel(logging.WARNING)
+		elif (this.parsedArgs.verbose == 2):
+			logging.getLogger().handlers[0].setLevel(logging.INFO)
+			logging.getLogger().setLevel(logging.INFO)
+		elif(this.parsedArgs.verbose >= 3):
+			logging.getLogger().handlers[0].setLevel(logging.DEBUG)
+			logging.getLogger().setLevel(logging.DEBUG)
+
+
 	# Do the argparse thing.
 	# Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ...
 	# NOTE: YOU CANNOT USE @recoverable METHODS HERE!
 	def ParseArgs(this):
 		this.parsedArgs, extraArgs = this.argparser.parse_known_args()
 
-		if (this.parsedArgs.verbose > 0):
-			logging.getLogger().setLevel(logging.DEBUG)
-
-		if (this.parsedArgs.quiet > 0):
-			logging.getLogger().setLevel(logging.WARNING)
-		elif (this.parsedArgs.quiet > 1):
-			logging.getLogger().setLevel(logging.ERROR)
-
-		logging.debug(f"<---- {this.name} (log level: {logging.getLogger().level}) ---->")
+		this.verbosity = this.parsedArgs.verbose
 
 		extraArgsKeys = []
 		for index in range(0, len(extraArgs), 2):
@@ -210,17 +283,20 @@ class Executor(DataContainer, Functor):
 			extraArgsValues.append(extraArgs[index])
 
 		this.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
-		logging.debug(f"Got extra arguments: {this.extraArgs}") # has to be after verbosity setting
-
 
 	# Functor method.
 	# We have to ParseArgs() here in order for other Executors to use ____KWArgs...
 	def ParseInitialArgs(this):
 		this.ParseArgs() # first, to enable debug and other such settings.
 		this.PopulateConfig()
+		this.SetVerbosity()
+		this.SetLogFile()
+		logging.debug(f"<---- {this.name} (log level: {logging.getLogger().level}) ---->")
+		logging.debug(f"Got extra arguments: {this.extraArgs}") # has to be after verbosity setting
+		logging.debug(f"Got config contents: {this.config}")
 		this.PopulateRepoDetails()
 
-		
+
 	# Functor required method
 	# Override this with your own workflow.
 	def Function(this):
@@ -231,7 +307,7 @@ class Executor(DataContainer, Functor):
 	# By default, Executors do not act on this.next; instead, they make it available to all Executed Functors.
 	def CallNext(this):
 		pass
-		
+
 
 	# Execute a Functor based on name alone (not object).
 	# If the given Functor has been Executed before, the cached Functor will be called again. Otherwise, a new Functor will be constructed.
@@ -250,7 +326,7 @@ class Executor(DataContainer, Functor):
 		this.cachedFunctors.update({functorName: functor})
 
 		return functor(*args, **kwargs, executor=this)
-		
+
 
 	# Attempts to download the given package from the repo url specified in calling args.
 	# Will refresh registered classes upon success
@@ -272,45 +348,45 @@ class Executor(DataContainer, Functor):
 			logging.debug(f"Creating directory {this.repo.store}")
 			mkpath(this.repo.store)
 
-		packageZipPath = os.path.join(this.repo.store, f"{packageName}.zip")	
+		packageZipPath = os.path.join(this.repo.store, f"{packageName}.zip")
 
 		url = f"{this.repo.url}/download?package_name={packageName}"
 
 		auth = None
 		if this.repo.username and this.repo.password:
-			auth = requests.auth.HTTPBasicAuth(this.repo.username, this.repo.password)   
+			auth = requests.auth.HTTPBasicAuth(this.repo.username, this.repo.password)
 
 		headers = {
 			"Connection": "keep-alive",
-		}	 
+		}
 
 		packageQuery = requests.get(url, auth=auth, headers=headers, stream=True)
 
 		if (packageQuery.status_code != 200):
 			raise PackageError(f"Unable to download {packageName}")
-			# let caller decide what to do next.
+		# let caller decide what to do next.
 
 		packageSize = int(packageQuery.headers.get('content-length', 0))
 		chunkSize = 1024 # 1 Kibibyte
 
 		logging.debug(f"Writing {packageZipPath} ({packageSize} bytes)")
 		packageZipContents = open(packageZipPath, 'wb+')
-		
+
 		progressBar = None
-		if (not this.parsedArgs.quiet):
+		if (this.verbosity >= 2):
 			progressBar = tqdm(total=packageSize, unit='iB', unit_scale=True)
 
 		for chunk in packageQuery.iter_content(chunkSize):
 			packageZipContents.write(chunk)
-			if (not this.parsedArgs.quiet):
+			if (this.verbosity >= 2):
 				progressBar.update(len(chunk))
-		
-		if (not this.parsedArgs.quiet):
+
+		if (this.verbosity >= 2):
 			progressBar.close()
 
-		if (packageSize and not this.parsedArgs.quiet and progressBar.n != packageSize):
+		if (packageSize and this.verbosity >= 2 and progressBar.n != packageSize):
 			raise PackageError(f"Package wrote {progressBar.n} / {packageSize} bytes")
-		
+
 		packageZipContents.close()
 
 		if (not os.path.exists(packageZipPath)):
@@ -324,12 +400,12 @@ class Executor(DataContainer, Functor):
 		openArchive.extractall(f"{extractLoc}")
 		openArchive.close()
 		os.remove(packageZipPath)
-		
+
 		if (registerClasses):
 			this.RegisterAllClassesInDirectory(this.repo.store)
 
 		return True
-			
+
 	# RETURNS and instance of a Datum, Functor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
 	# Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
 	# Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
@@ -351,11 +427,11 @@ class Executor(DataContainer, Functor):
 		# NOTE: Functors are Data, so they have an IsValid() method
 		if (not registered or not registered.IsValid()):
 			logging.error(f"No valid object: {registeredName}")
-			raise FatalCannotExecute(f"No valid object: {registeredName}") 
+			raise FatalCannotExecute(f"No valid object: {registeredName}")
 
 		return registered
 
-	
+
 	# Non-static override of the SelfRegistering method.
 	# Needed for errorObject resolution.
 	@recoverable
