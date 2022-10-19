@@ -118,6 +118,8 @@ class Executor(DataContainer, Functor):
 
 	# Global logging config.
 	# Override this method to disable or change.
+	# This method will add a 'setupBy' member to the root logger in order to ensure no one else (e.g. another Executor) tries to reconfigure the logger while we're using it.
+	# The 'setupBy' member will be removed from the root logger by TeardownLogging, which is called in AfterFunction().
 	def SetupLogging(this):
 		class CustomFormatter(logging.Formatter):
 
@@ -138,16 +140,32 @@ class Executor(DataContainer, Functor):
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
 				return formatter.format(record)
 
+		# Skip setting up logging if it's already been done.
+		if (hasattr(logging.getLogger(), 'setupBy')):
+			return
+
 		logging.getLogger().handlers.clear()
 		stderrHandler = logging.StreamHandler()
 		stderrHandler.setLevel(logging.CRITICAL)
 		stderrHandler.setFormatter(CustomFormatter())
 		logging.getLogger().addHandler(stderrHandler)
+		setattr(logging.getLogger(), 'setupBy', this)
+
+
+	# Global logging de-config.
+	def TeardownLogging(this):
+		if (not hasattr(logging.getLogger(), 'setupBy')):
+			return
+		if (not logging.getLogger().setupBy == this):
+			return
+		delattr(logging.getLogger(), 'setupBy')
+
 
 
 	# Logging to stderr is easy, since it will always happen.
 	# However, we also want the user to be able to log to a file, possibly set in the config.json, which requires a Fetch().
 	# Thus, setting up the log file handler has to occur later than the initial SetupLogging call.
+	# Calling this multiple times will add multiple log handlers.
 	def SetLogFile(this):
 		this.Set('log_file', this.Fetch('log_file', None, ['args', 'config', 'environment']))
 		if (this.log_file is None):
@@ -307,6 +325,11 @@ class Executor(DataContainer, Functor):
 	# By default, Executors do not act on this.next; instead, they make it available to all Executed Functors.
 	def CallNext(this):
 		pass
+
+
+	# Close out anything we left open.
+	def AfterFunction(this):
+		this.TeardownLogging()
 
 
 	# Execute a Functor based on name alone (not object).
