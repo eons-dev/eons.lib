@@ -177,14 +177,14 @@ class Functor(Datum):
 
 		if (isinstance(value, dict)):
 			ret = {}
-			for key, value in value.items():
-				ret[key] = this.EvaluateToType(value)
+			for key, val in value.items():
+				ret[key] = this.EvaluateToType(val, evaluateExpressions)
 			return ret
 
 		if (isinstance(value, list)):
 			ret = []
-			for value in value:
-				ret.append(this.EvaluateToType(value))
+			for val in value:
+				ret.append(this.EvaluateToType(val, evaluateExpressions))
 			return ret
 
 		if (isinstance(value, str)):
@@ -451,7 +451,8 @@ class Functor(Datum):
 			'environment',
 			'executor'
 		]
-		this.Set('next', this.FetchWithout(dontFetchFrom, 'next', []))
+		# Let 'next' evaluate its expressions if it chooses to. We don't need to do that pre-emptively.
+		this.Set('next', this.FetchWithout(dontFetchFrom, 'next', []), evaluateExpressions=False)
 
 
 	# Make sure that precursors have provided all necessary methods for *this.

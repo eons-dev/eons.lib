@@ -263,21 +263,22 @@ class Executor(DataContainer, Functor):
 
 	# How do we get the verbosity level and what do we do with it?
 	# This method should set log levels, etc.
-	def SetVerbosity(this):
+	def SetVerbosity(this, fetch=True):
 
-		# Take the highest of -v vs --verbosity
-		verbosity = this.Fetch('verbosity', 0, ['args', 'config', 'environment'])
-		if (verbosity > this.verbosity):
-			logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
-			this.verbosity = verbosity
+		if (fetch):
+			# Take the highest of -v vs --verbosity
+			verbosity = this.Fetch('verbosity', 0, ['args', 'config', 'environment'])
+			if (verbosity > this.verbosity):
+				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
+				this.verbosity = verbosity
 
-		if (this.parsedArgs.verbose == 1):
+		if (this.verbosity == 1):
 			logging.getLogger().handlers[0].setLevel(logging.WARNING)
 			logging.getLogger().setLevel(logging.WARNING)
-		elif (this.parsedArgs.verbose == 2):
+		elif (this.verbosity == 2):
 			logging.getLogger().handlers[0].setLevel(logging.INFO)
 			logging.getLogger().setLevel(logging.INFO)
-		elif(this.parsedArgs.verbose >= 3):
+		elif(this.verbosity >= 3):
 			logging.getLogger().handlers[0].setLevel(logging.DEBUG)
 			logging.getLogger().setLevel(logging.DEBUG)
 
@@ -289,6 +290,9 @@ class Executor(DataContainer, Functor):
 		this.parsedArgs, extraArgs = this.argparser.parse_known_args()
 
 		this.verbosity = this.parsedArgs.verbose
+
+		# If verbosity was specified on the command line, let's print more info while reading in the config, etc.
+		this.SetVerbosity(False)
 
 		extraArgsKeys = []
 		for index in range(0, len(extraArgs), 2):
