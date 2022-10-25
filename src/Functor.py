@@ -3,6 +3,7 @@ import os
 import shutil
 from copy import deepcopy
 from .Constants import *
+from .SelfRegistering import SelfRegistering
 from .Datum import Datum
 from .Exceptions import *
 from .Utils import util
@@ -509,8 +510,8 @@ class Functor(Datum):
 			this.PopulateMethods() # Doesn't require Fetch; depends on precursor
 			this.ParseInitialArgs() # Usually where config is read in.
 			this.ValidateStaticArgs() # nop on call 2+
-			this.ValidateArgs()
 			this.PopulateNext()
+			this.ValidateArgs()
 			this.ValidateMethods()
 
 			this.BeforeFunction()
@@ -558,6 +559,33 @@ class Functor(Datum):
 	# See Recoverable.py for details
 	def GetExecutor(this):
 		return this.executor
+
+
+	# Add support for deepcopy.
+	# Copies everything besides Methods; those will be created by PopulateMethods.
+	def __deepcopy__(this, memodict=None):
+		logging.debug(f"Creating new {this.__class__} from {this.name}")
+
+		# Trust that these will be available.
+		builtins = {
+			Functor().__class__: Functor(),
+			Method().__class__: Method(),
+			Executor().__class__: Executor()
+		}
+
+		ret = None
+		if (this.__class__ in builtins.keys()):
+			ret = builtins[this.__class__]
+		else:
+			ret = SelfRegistering(this.__class__)
+
+		for attr, value in [av for av in vars(this).items() if av[0] not in ['methods']]:
+			if (callable(value) and attr in this.methods.keys()):
+				# PopulateMethods will take care of recreating skipped Methods
+				continue
+			logging.debug(f"Setting {attr} to {value}")
+			setattr(ret, attr, value)
+		return ret
 
 
 	######## START: Fetch Locations ########
