@@ -121,6 +121,12 @@ class Executor(DataContainer, Functor):
 	# This method will add a 'setupBy' member to the root logger in order to ensure no one else (e.g. another Executor) tries to reconfigure the logger while we're using it.
 	# The 'setupBy' member will be removed from the root logger by TeardownLogging, which is called in AfterFunction().
 	def SetupLogging(this):
+		try:
+			util.AddLoggingLevel('recovery', logging.ERROR+1)
+		except:
+			# Could already be setup.
+			pass
+
 		class CustomFormatter(logging.Formatter):
 
 			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s'
@@ -132,6 +138,7 @@ class Executor(DataContainer, Functor):
 				logging.INFO: preFormat + util.console.GetColorCode('white', 'light') + format + postFormat,
 				logging.WARNING: preFormat + util.console.GetColorCode('yellow', 'light') + format + postFormat,
 				logging.ERROR: preFormat + util.console.GetColorCode('red', 'dark') + format + postFormat,
+				logging.RECOVERY: preFormat + util.console.GetColorCode('green', 'light') + format + postFormat,
 				logging.CRITICAL: preFormat + util.console.GetColorCode('red', 'light', styles=['bold']) + format + postFormat
 			}
 

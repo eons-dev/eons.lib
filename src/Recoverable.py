@@ -49,7 +49,7 @@ def RecoverableImplementation(obj, executor, function, *args, **kwargs):
 				logging.debug(f"Trying function ({function}) again after applying {res}.")
 				ret = function(obj, *args, **kwargs)
 				executor.ClearErrorResolutionStack(str(e)) # success!
-				logging.info(f"{res} successfully resolved '{e}'!")
+				logging.recovery(f"{res} successfully resolved '{e}'!")
 				logging.debug(f"Error stack is now: {executor.errorResolutionStack}")
 				return ret
 			except Exception as e2:

@@ -108,3 +108,32 @@ class util:
 			return compiledCode
 
 		resetStyle = "\033[0m"
+
+
+	# Add a logging level
+	# per: https://stackoverflow.com/questions/2183233/how-to-add-a-custom-loglevel-to-pythons-logging-facility/35804945#35804945
+	@staticmethod
+	def AddLoggingLevel(level, value):
+		levelName = level.upper()
+		methodName = level.lower()
+
+		if hasattr(logging, levelName):
+			raise AttributeError('{} already defined in logging module'.format(levelName))
+		if hasattr(logging, methodName):
+			raise AttributeError('{} already defined in logging module'.format(methodName))
+		if hasattr(logging.getLogger(), methodName):
+			raise AttributeError('{} already defined in logger class'.format(methodName))
+
+		# This method was inspired by the answers to Stack Overflow post
+		# http://stackoverflow.com/q/2183233/2988730, especially
+		# http://stackoverflow.com/a/13638084/2988730
+		def logForLevel(this, message, *args, **kwargs):
+			if this.isEnabledFor(value):
+				this._log(value, message, args, **kwargs)
+		def logToRoot(message, *args, **kwargs):
+			logging.log(value, message, *args, **kwargs)
+
+		logging.addLevelName(value, levelName)
+		setattr(logging, levelName, value)
+		setattr(logging.getLogger(), methodName, logForLevel)
+		setattr(logging, methodName, logToRoot)

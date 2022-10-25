@@ -3,7 +3,6 @@ import os
 import shutil
 from copy import deepcopy
 from .Constants import *
-from .SelfRegistering import SelfRegistering
 from .Datum import Datum
 from .Exceptions import *
 from .Utils import util
@@ -374,6 +373,7 @@ class Functor(Datum):
 						continue
 
 					methodToInsert = deepcopy(method)
+					methodToInsert.UpdateSource()
 
 					if (existingMethod.inheritedMethodsFirst):
 						logging.debug(f"Will call {method.name} from {source} to prior to this.")
@@ -384,6 +384,7 @@ class Functor(Datum):
 						this.methods[method.name].next.append(methodToInsert)
 				else:
 					this.methods[method.name] = deepcopy(method)
+					this.methods[method.name].UpdateSource()
 
 		for method in this.methods.values():
 			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
@@ -562,29 +563,20 @@ class Functor(Datum):
 
 
 	# Add support for deepcopy.
-	# Copies everything besides Methods; those will be created by PopulateMethods.
+	# Copies everything besides methods; those will be created by PopulateMethods or removed.
 	def __deepcopy__(this, memodict=None):
 		logging.debug(f"Creating new {this.__class__} from {this.name}")
+		cls = this.__class__
+		ret = cls.__new__(cls)
+		ret.__init__()
 
-		# Trust that these will be available.
-		builtins = {
-			Functor().__class__: Functor(),
-			Method().__class__: Method(),
-			Executor().__class__: Executor()
-		}
-
-		ret = None
-		if (this.__class__ in builtins.keys()):
-			ret = builtins[this.__class__]
-		else:
-			ret = SelfRegistering(this.__class__)
-
-		for attr, value in [av for av in vars(this).items() if av[0] not in ['methods']]:
-			if (callable(value) and attr in this.methods.keys()):
+		memodict[id(this)] = ret
+		for key, val in [tup for tup in this.__dict__.items() if tup[0] not in ['methods']]:
+			if (callable(val)):
 				# PopulateMethods will take care of recreating skipped Methods
+				# All other methods are dropped since they apparently have problems on some implementations.
 				continue
-			logging.debug(f"Setting {attr} to {value}")
-			setattr(ret, attr, value)
+			setattr(ret, key, deepcopy(val, memodict))
 		return ret
 
 
