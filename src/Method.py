@@ -94,7 +94,8 @@ class Method(Functor):
 def {wrappedFunctionName}(this):
 {this.source}
 '''
-		logging.debug(f"Source for {this.name} is:\n{completeSource}")
+		if (this.executor and this.executor.verbosity > 3):
+			logging.debug(f"Source for {this.name} is:\n{completeSource}")
 		code = compile(completeSource, '', 'exec')
 		exec(code)
 		exec(f'this.Function = {wrappedFunctionName}.__get__(this, this.__class__)')

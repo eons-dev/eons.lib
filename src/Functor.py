@@ -474,6 +474,7 @@ class Functor(Datum):
 
 
 	# Hook for whatever logic you'd like to run before the next Functor is called.
+	# FIXME: This isn't actually called.
 	def PrepareNext(this, next):
 		pass
 
@@ -485,7 +486,7 @@ class Functor(Datum):
 			return None
 
 		if (this.GetExecutor() is None):
-			logging.warning(f"{this.name} has no executor and cannot execute next ({this.next}).")
+			raise InvalidNext(f"{this.name} has no executor and cannot execute next ({this.next}).")
 
 		next = this.next.pop(0)
 		if (not this.ValidateNext(next)):
