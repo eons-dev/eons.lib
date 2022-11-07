@@ -393,6 +393,7 @@ class Functor(Datum):
 			# Python < 3.11
 			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
 
+			# appears to work for all python versions >= 3.8
 			setattr(this, method.name, method.__call__.__get__(method, method.__class__))
 
 
