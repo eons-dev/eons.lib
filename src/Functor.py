@@ -389,10 +389,15 @@ class Functor(Datum):
 		for method in this.methods.values():
 			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
 			method.object = this
-			setattr(this, method.name, method.__call__.__get__(this, this.__class__)) #...
+
+			# Python < 3.11
+			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
+
+			setattr(this, method.name, method.__call__.__get__(method, method.__class__))
 
 
-	# Set this.precursor
+
+# Set this.precursor
 	# Also set this.executor because it's easy.
 	def PopulatePrecursor(this):
 		if (this.executor is None):
