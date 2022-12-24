@@ -72,8 +72,7 @@ class Executor(DataContainer, Functor):
 		this.defaultRepoDirectory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
 		this.registerDirectories = []
 		this.defaultConfigFile = None
-
-		this.defaultPrefix = ""
+		this.defaultPackageType = ""
 
 		this.Configure()
 		this.RegisterIncludedClasses()
@@ -347,16 +346,16 @@ class Executor(DataContainer, Functor):
 	# If the given Functor has been Executed before, the cached Functor will be called again. Otherwise, a new Functor will be constructed.
 	@recoverable
 	def Execute(this, functorName, *args, **kwargs):
-		prefix = this.defaultPrefix
-		if ('prefix' in kwargs):
-			prefix = kwargs.pop('prefix')
+		packageType = this.defaultPackageType
+		if ('packageType' in kwargs):
+			packageType = kwargs.pop('packageType')
 
 		logging.debug(f"Executing {functorName}({', '.join([str(a) for a in args] + [k+'='+str(v) for k,v in kwargs.items()])})")
 
 		if (functorName in this.cachedFunctors):
 			return this.cachedFunctors[functorName](*args, **kwargs, executor=this)
 
-		functor = this.GetRegistered(functorName, prefix)
+		functor = this.GetRegistered(functorName, packageType)
 		this.cachedFunctors.update({functorName: functor})
 
 		return functor(*args, **kwargs, executor=this)
@@ -442,19 +441,19 @@ class Executor(DataContainer, Functor):
 
 	# RETURNS and instance of a Datum, Functor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
 	# Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
-	# Both python modules and other eons modules of the same prefix will be installed automatically in order to meet all required dependencies of the given module.
+	# Both python modules and other eons modules of the same packageType will be installed automatically in order to meet all required dependencies of the given module.
 	@recoverable
 	def GetRegistered(this,
 		registeredName,
-		prefix=""):
+		packageType=""):
 
 		try:
 			registered = SelfRegistering(registeredName)
 		except Exception as e:
 			# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
 			packageName = registeredName
-			if (prefix):
-				packageName = f"{prefix}_{registeredName}"
+			if (packageType):
+				packageName = f"{registeredName}.{packageType}"
 			logging.error(f"While trying to instantiate {packageName}, got: {e}")
 			raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
@@ -483,7 +482,7 @@ class Executor(DataContainer, Functor):
 
 	# Utility method. may not be useful.
 	@staticmethod
-	def SplitNameOnPrefix(name):
+	def SplitNameOnpackageType(name):
 		splitName = name.split('_')
 		if (len(splitName)>1):
 			return splitName[0], splitName[1]
