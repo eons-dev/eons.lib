@@ -114,7 +114,7 @@ class StandardFunctor(Functor):
 				logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
 
 		if (p.returncode is not None and p.returncode):
-			raise CommandUnsuccessful(f"Command returned {p.returncode}")
+			raise CommandUnsuccessful(f"Command returned {p.returncode}: {command}")
 		
 		logging.debug(f"================ Completed command: {command} ================")
 		if (saveout):
