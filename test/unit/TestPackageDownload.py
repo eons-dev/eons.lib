@@ -36,11 +36,18 @@ class TestPackageDownload(StandardTestFixture):
 		# FIXME: How are we getting stale data from the previous test?!?!
 		this.executor.ClearErrorResolutionStack(force=True)
 
-		logging.info(f"Deleting: {this.executor.repo.store}")
+		# Use a fake repo.store so that we don't destroy a shared resource.
+		origRepoStore = this.executor.repo.store
+		tmpRepoStore = "/tmp/__test_repo_store"
+		this.executor.repo.store = tmpRepoStore
+	
 		if (Path(this.executor.repo.store).exists()):
+			logging.info(f"Deleting: {this.executor.repo.store}")
 			shutil.rmtree(this.executor.repo.store)
 
 		test = this.executor.GetRegistered("eonstestpackage", "package")
 		assert(test is not None)
 		test(executor=this.executor)
 		assert(test.result == 1)
+
+		this.executor.repo.store = origRepoStore
