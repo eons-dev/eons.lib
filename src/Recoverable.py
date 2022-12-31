@@ -59,4 +59,5 @@ def RecoverableImplementation(obj, executor, function, *args, **kwargs):
 				pass
 
 		#  We failed to resolve the error. Die
-		raise FailedErrorResolution(f"Tried and failed to resolve: {e} STACK: {executor.errorResolutionStack}.")
+		sys.tracebacklimit = 0 # traceback is NOT helpful here.
+		raise FailedErrorResolution(f"Tried and failed to resolve: {e} STACK: {executor.errorResolutionStack}. See earlier logs (in debug) for traceback.")
