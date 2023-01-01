@@ -14,6 +14,7 @@ from .Functor import Functor
 from .SelfRegistering import SelfRegistering
 from .Recoverable import recoverable
 from .Utils import util
+from .ExecutorTracker import ExecutorTracker
 
 # Executor: a base class for user interfaces.
 # An Executor is a functor and can be executed as such.
@@ -74,9 +75,17 @@ class Executor(DataContainer, Functor):
 		this.defaultConfigFile = None
 		this.defaultPackageType = ""
 
+		# Track *this globally
+		ExecutorTracker.Instance().Push(this)
+
 		this.Configure()
 		this.RegisterIncludedClasses()
 		this.AddArgs()
+
+
+	def __del__(this):
+		ExecutorTracker.Instance().Pop(this)
+		super().__del__()
 
 
 	# Adapter for @recoverable.
