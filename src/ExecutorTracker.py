@@ -31,7 +31,10 @@ class ExecutorTracker:
 		# Executors are supposed to remove themselves from this list when they are deleted.
 		# A python object cannot be deleted if it has references.
 		# Thus, we forcibly decrease the reference count and rely on Exectuor's self-reporting to avoid accessing deallocated memory.
-		ctypes.pythonapi.Py_DecRef(ctypes.py_object(executor))
+		# This appears to cause segfaults on some systems, so we'll just live with the fact that Executors will never be destroyed.
+		# If you want your executor to stop being tracked, do it yourself. :(
+		#
+		# ctypes.pythonapi.Py_DecRef(ctypes.py_object(executor))
 
 		logging.debug(f"Now tracking Executor: {executor}")
 

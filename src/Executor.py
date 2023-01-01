@@ -82,9 +82,10 @@ class Executor(DataContainer, Functor):
 		this.RegisterIncludedClasses()
 		this.AddArgs()
 
-
-	def __del__(this):
-		ExecutorTracker.Instance().Pop(this)
+	# Destructors do not work reliably in python.
+	# NOTE: you CANNOT delete *this without first Pop()ing it from the ExecutorTracker.
+	# def __del__(this):
+	# 	ExecutorTracker.Instance().Pop(this)
 
 
 	# Adapter for @recoverable.
