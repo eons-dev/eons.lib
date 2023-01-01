@@ -85,7 +85,6 @@ class Executor(DataContainer, Functor):
 
 	def __del__(this):
 		ExecutorTracker.Instance().Pop(this)
-		super().__del__()
 
 
 	# Adapter for @recoverable.
