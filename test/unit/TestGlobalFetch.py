@@ -9,8 +9,8 @@ class TestGlobalFetch(StandardTestFixture):
 	def test_global_fetch(this):
 
 		# The StandardTestFixture should create a DummyExecutor named "Standard Test Executor".
-		# Let's test that.
-		expectedName = this.executor.name
+		expectedName = "Test Global Fetch Executor"
+		this.executor.name = expectedName
 		assert(eons.Fetch("name") == expectedName)
 
 		# Depending on how this test is run, there may be other executors registered besides the DummyExecutor (e.g. EBBS).
