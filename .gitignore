@@ -4,3 +4,6 @@ build/**/
 
 #intellij
 /.idea/
+
+#temp files
+__pychache__/
