@@ -42,6 +42,10 @@ class ErrorResolution(StandardFunctor):
 		this.errorObject = ""
 		this.errorResolutionStack = {}
 
+		# Provided directly from the recoverable decorator.
+		this.optionalKWArgs["obj"] = None
+		this.optionalKWArgs["function"] = None
+
 		# We do want to know whether or not we should attempt to run whatever failed again.
 		# So, let's store that in functionSucceeded. Meaning if this.functionSucceeded, try the original method again.
 		# No rollback, by default and definitely don't throw Exceptions.

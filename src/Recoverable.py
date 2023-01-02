@@ -42,7 +42,7 @@ def RecoverableImplementation(obj, executor, function, *args, **kwargs):
 		for i, res in enumerate(executor.resolveErrorsWith):
 
 			logging.debug(f"Checking if {res} can fix '{e}'.")
-			if (not executor.ResolveError(e, i)): # attempt to resolve the issue; might cause us to come back here with a new error.
+			if (not executor.ResolveError(e, i, obj, function)): # attempt to resolve the issue; might cause us to come back here with a new error.
 				# if no resolution was attempted, there's no need to re-run the function.
 				continue
 			try:

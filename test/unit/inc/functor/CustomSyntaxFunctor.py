@@ -1,7 +1,7 @@
 import eons
 
 class CustomSyntaxFunctor(eons.Functor):
-	def __init__(this, name="HelloFunctor"):
+	def __init__(this, name="CustomSyntaxFunctor"):
 		super().__init__(name)
 
 		this.num = 0

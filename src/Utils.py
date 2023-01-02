@@ -1,5 +1,6 @@
 import traceback
 import logging
+import jsonpickle
 from .Exceptions import *
 from copy import deepcopy
 
@@ -18,6 +19,10 @@ class util:
 		def __deepcopy__(this, memo=None):
 			return util.DotDict(deepcopy(dict(this), memo=memo))
 
+	# DotDict doesn't pickle right, since it's a class and not a native dict.
+	class DotDictPickler(jsonpickle.handlers.BaseHandler):
+		def flatten(this, dotdict, data):
+			return dict(dotdict)
 
 	@staticmethod
 	def RecursiveAttrFunc(func, obj, attrList):
@@ -137,3 +142,6 @@ class util:
 		setattr(logging, levelName, value)
 		setattr(logging.getLogger(), methodName, logForLevel)
 		setattr(logging, methodName, logToRoot)
+
+
+jsonpickle.handlers.registry.register(util.DotDict, util.DotDictPickler)

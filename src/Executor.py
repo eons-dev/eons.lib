@@ -38,6 +38,7 @@ class Executor(DataContainer, Functor):
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
+			"find_by_fetch",
 			'install_from_repo',
 			'install_with_pip'
 		]
@@ -60,6 +61,7 @@ class Executor(DataContainer, Functor):
 
 		# config is loaded with the contents of a JSON config file specified by --config / -c or by the defaultConfigFile location, below.
 		this.config = None
+		this.currentConfigKey = None # used for big, nested configs.
 
 		# Where should we log to?
 		# Set by Fetch('log_file')
@@ -500,12 +502,12 @@ class Executor(DataContainer, Functor):
 
 	# Uses the ResolveError Functors to process any errors.
 	@recoverable
-	def ResolveError(this, error, attemptResolution):
+	def ResolveError(this, error, attemptResolution, obj, function):
 		if (attemptResolution >= len(this.resolveErrorsWith)):
 			raise FailedErrorResolution(f"{this.name} does not have {attemptResolution} resolutions to fix this error: {error} (it has {len(this.resolveErrorsWith)})")
 
 		resolution = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") # Okay to ResolveErrors for ErrorResolutions.
-		this.errorResolutionStack, errorMightBeResolved = resolution(executor=this, error=error)
+		this.errorResolutionStack, errorMightBeResolved = resolution(executor=this, error=error, obj=obj, function=function)
 		if (errorMightBeResolved):
 			logging.debug(f"Error might have been resolved by {resolution.name}.")
 		return errorMightBeResolved

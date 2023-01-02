@@ -176,7 +176,7 @@ class Functor(Datum):
 			return value
 
 		if (isinstance(value, dict)):
-			ret = {}
+			ret = util.DotDict()
 			for key, val in value.items():
 				ret[key] = this.EvaluateToType(val, evaluateExpressions)
 			return ret
