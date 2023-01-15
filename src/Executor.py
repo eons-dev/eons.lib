@@ -284,7 +284,7 @@ class Executor(DataContainer, Functor):
 
 		if (fetch):
 			# Take the highest of -v vs --verbosity
-			verbosity = this.Fetch('verbosity', 0, ['args', 'config', 'environment'])
+			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, ['args', 'config', 'environment']))
 			if (verbosity > this.verbosity):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
