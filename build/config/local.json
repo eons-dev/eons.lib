@@ -11,6 +11,9 @@
         "package_url" : "https://github.com/eons-dev/lib_eons",
         "license" : "MIT License",
         "python_min" : "3.7",
+        "requirements": [
+          "pyyaml"
+        ],
         "classifiers" : [
           "Development Status :: 4 - Beta"
         ],
