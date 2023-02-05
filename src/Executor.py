@@ -1,8 +1,10 @@
 import sys, os
+import builtins
 import argparse
 import logging
 import requests
 import jsonpickle
+import yaml
 from pathlib import Path
 from tqdm import tqdm
 from zipfile import ZipFile
@@ -28,7 +30,7 @@ from .ExecutorTracker import ExecutorTracker
 # NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, Functor):
 
-	def __init__(this, name=INVALID_NAME(), descriptionStr="eons python framework. Extend as thou wilt."):
+	def __init__(this, name=INVALID_NAME(), descriptionStr="Eons python framework. Extend as thou wilt."):
 		this.SetupLogging()
 
 		super().__init__(name)
@@ -61,7 +63,18 @@ class Executor(DataContainer, Functor):
 
 		# config is loaded with the contents of a JSON config file specified by --config / -c or by the defaultConfigFile location, below.
 		this.config = None
-		this.currentConfigKey = None # used for big, nested configs.
+
+		# *this will keep track of any global variables it creates.
+		# All globals should be read only.
+		# Dict is in the form of {variable_name: set_by_fetch}
+		# See SetGlobal(), below.
+		this.globals = {}
+
+		# The globalContextKey is mainly used for big, nested configs.
+		# It serves as a means of leaving the name of various global values intact while changing their values.
+		# For example, a method of some Functor might check service.name, but we might have a service for mysql, redis, etc. In this situation, we can say SetGlobalContextKey('mysql') and the Functor will operate on the mysql.service.name. Then, when we're ready, we SetGlobalContextKey('redis') and call the same Functor again to operate on the redis.service.name.
+		# Thus, the globalContextKey allow those using global variables to remain naive of where those values are comming from.
+		this.globalContextKey = None
 
 		# Where should we log to?
 		# Set by Fetch('log_file')
@@ -77,12 +90,10 @@ class Executor(DataContainer, Functor):
 		this.defaultConfigFile = None
 		this.defaultPackageType = ""
 
-		# Track *this globally
-		ExecutorTracker.Instance().Push(this)
-
 		this.Configure()
 		this.RegisterIncludedClasses()
 		this.AddArgs()
+
 
 	# Destructors do not work reliably in python.
 	# NOTE: you CANNOT delete *this without first Pop()ing it from the ExecutorTracker.
@@ -261,7 +272,9 @@ class Executor(DataContainer, Functor):
 			return
 
 		configFile = open(this.parsedArgs.config, "r")
-		this.config = jsonpickle.decode(configFile.read())
+		# Yaml doesn't allow tabs. We do. Convert.
+		this.config = yaml.safe_load(configFile.read().replace('\t', ' '))
+		# this.config = jsonpickle.decode(configFile.read())
 		configFile.close()
 
 
@@ -284,7 +297,7 @@ class Executor(DataContainer, Functor):
 
 		if (fetch):
 			# Take the highest of -v vs --verbosity
-			verbosity = this.Fetch('verbosity', 0, ['args', 'config', 'environment'])
+			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, ['args', 'config', 'environment']))
 			if (verbosity > this.verbosity):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
@@ -339,7 +352,13 @@ class Executor(DataContainer, Functor):
 	# Functor required method
 	# Override this with your own workflow.
 	def Function(this):
+		
+		# NOTE: class registration may instantiate other Executors.
 		this.RegisterAllClasses()
+
+		# Track *this globally
+		ExecutorTracker.Instance().Push(this)
+		
 		this.InitData()
 
 
@@ -498,6 +517,91 @@ class Executor(DataContainer, Functor):
 		if (len(splitName)>1):
 			return splitName[0], splitName[1]
 		return "", name
+
+
+	# Set a global value for use throughout all python modules.
+	def SetGlobal(this, name, value, setFromFetch=False):
+		# In cause the value was accessed with ".", we need to cast it to a DotDict.
+		if (isinstance(value, dict)):
+			value = util.DotDict(value)
+
+		logging.debug(f"Setting global value {name} = {value}")
+		setattr(builtins, name, value)
+		this.globals.update({name: setFromFetch})
+
+
+	# Move a value from Fetch to globals.
+	def SetGlobalFromFetch(this, name):
+		value = None
+		isSet = False
+
+		if (not isSet and this.globalContextKey):
+			context = this.Fetch(this.globalContextKey)
+			if (util.HasAttr(context, name)):
+				value =  this.EvaluateToType(util.GetAttr(context, name))
+				isSet = True
+
+		if (not isSet):
+			val, fetched = this.FetchWithout('globals', name, start=False)
+			if (fetched):
+				value = this.EvaluateToType(val)
+				isSet = True
+
+		if (isSet):
+			this.SetGlobal(name, value)
+		else:
+			logging.error(f"Failed to set global variable {name}")
+
+
+	# Remove a variable from python's globals (i.e. builtins module)
+	def ExpireGlobal(this, toExpire):
+		logging.debug(f"Expiring global {toExpire}")
+		try:
+			delattr(builtins, toExpire)
+		except Exception as e:
+			logging.error(f"Failed to expire {toExpire}: {e}")
+		# Carry on.
+
+
+	# Remove all the globals *this has created.
+	def ExpireAllGlobals(this):
+		for gbl in this.globals.keys():
+			this.ExpireGlobal(gbl)
+
+
+	# Re-Fetch globals but leave manually set globals alone.
+	def UpdateAllGlobals(this):
+		logging.debug(f"Updating all globals")
+		for gbl, fetch in this.globals.items():
+			if (fetch):
+				this.SetGlobalFromFetch(gbl)
+
+
+	# Change the context key we use for fetching globals.
+	# Then update globals.
+	def SetGlobalContextKey(this, contextKey):
+		updateGlobals = False
+		if (this.globalContextKey != contextKey):
+			updateGlobals = True
+
+		logging.debug(f"Setting current config key to {contextKey}")
+		this.globalContextKey = contextKey
+
+		if (updateGlobals):
+			this.UpdateAllGlobals()
+
+
+	# Push a sub-context onto the current context
+	def PushGlobalContextKey(this, keyToPush):
+		this.SetGlobalContextKey(f"{this.globalContextKey}.{keyToPush}")
+
+
+	# Pop a sub-context from the current context
+	# The keyToPop must currently be the last key added.
+	def PopGlobalContextKey(this, keyToPop):
+		if (not this.globalContextKey.endswith(keyToPop)):
+			raise GlobalError(f"{keyToPop} was not the last key pushed. Please pop {this.globalContextKey.split('.')[-1]} first.")
+		this.globalContextKey = '.'.join(this.globalContextKey.split('.')[:-1])
 
 
 	# Uses the ResolveError Functors to process any errors.

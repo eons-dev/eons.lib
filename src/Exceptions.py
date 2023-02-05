@@ -2,6 +2,8 @@ class ActualType(type):
 	def __repr__(self):
 		return self.__name__
 
+class GlobalError(Exception, metaclass=ActualType): pass
+
 class NotInstantiableError(Exception, metaclass=ActualType): pass
 
 class MissingArgumentError(Exception, metaclass=ActualType): pass

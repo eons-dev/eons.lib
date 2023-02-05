@@ -1,5 +1,6 @@
 import logging
 import operator
+from .Utils import util
 from .Constants import *
 from .Datum import Datum
 
@@ -37,7 +38,7 @@ class DataContainer(Datum):
 	def GetDatumBy(this, datumAttribute, match):
 		for d in this.data:
 			try: # within for loop 'cause maybe there's an issue with only 1 Datum and the rest are fine.
-				if (str(getattr(d, datumAttribute)) == str(match)):
+				if (str(util.GetAttr(d, datumAttribute)) == str(match)):
 					return d
 			except Exception as e:
 				logging.error(f"{this.name} - {e.message}")
@@ -60,7 +61,7 @@ class DataContainer(Datum):
 
 	# Removes all Data which match toRem along the given attribute
 	def RemoveDataBy(this, datumAttribute, toRem):
-		toRem = [d for d in this.data if str(getattr(d, datumAttribute)) in list(map(str, toRem))]
+		toRem = [d for d in this.data if str(util.GetAttr(d, datumAttribute)) in list(map(str, toRem))]
 		return this.RemoveData(toRem)
 
 
@@ -79,7 +80,7 @@ class DataContainer(Datum):
 		# for d in this.class:
 		#	 shouldRem = False
 		#	 for k in toKeep:
-		#		 if (str(getattr(d, datumAttribute)) == str(k)):
+		#		 if (str(util.GetAttr(d, datumAttribute)) == str(k)):
 		#			 logging.debug(f"found {k} in {d.__dict__}")
 		#			 shouldRem = True
 		#			 break
@@ -87,7 +88,7 @@ class DataContainer(Datum):
 		#		 toRem.append(d)
 		#	 else:
 		#		 logging.debug(f"{k} not found in {d.__dict__}")
-		toRem = [d for d in this.data if str(getattr(d, datumAttribute)) not in list(map(str, toKeep))]
+		toRem = [d for d in this.data if str(util.GetAttr(d, datumAttribute)) not in list(map(str, toKeep))]
 		return this.RemoveData(toRem)
 
 
@@ -122,7 +123,7 @@ class DataContainer(Datum):
 			for d in this.data:
 				if (ignoreNames and d.name in ignoreNames):
 					continue
-				if (relation(getattr(d, datumAttribute), target)):
+				if (relation(util.GetAttr(d, datumAttribute), target)):
 					toRem.append(d)
 			return this.RemoveData(toRem)
 		except Exception as e:
@@ -138,16 +139,16 @@ class DataContainer(Datum):
 		for d1 in this.data:
 			skip = False
 			for dp in alreadyProcessed:
-				if (str(getattr(d1, datumAttribute)) == dp):
+				if (str(util.GetAttr(d1, datumAttribute)) == dp):
 					skip = True
 					break
 			if (skip):
 				continue
 			for d2 in this.data:
-				if (d1 is not d2 and str(getattr(d1, datumAttribute)) == str(getattr(d2, datumAttribute))):
-					logging.info(f"Removing duplicate Datum {d2} with unique id {getattr(d2, datumAttribute)}")
+				if (d1 is not d2 and str(util.GetAttr(d1, datumAttribute)) == str(util.GetAttr(d2, datumAttribute))):
+					logging.info(f"Removing duplicate Datum {d2} with unique id {util.GetAttr(d2, datumAttribute)}")
 					toRem.append(d2)
-					alreadyProcessed.append(str(getattr(d1, datumAttribute)))
+					alreadyProcessed.append(str(util.GetAttr(d1, datumAttribute)))
 		return this.RemoveData(toRem)
 
 

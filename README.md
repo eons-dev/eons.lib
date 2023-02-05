@@ -6,7 +6,7 @@ Design in short: Self-registering, sequential functors with implicit and automat
 
 ## Eons vs Biology
 
-The Eons library is designed for plug-and-play development, unlike Biology. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded (due to Python limitations), while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is reduced to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex, build off each other, and be loaded from the cloud at runtime, we aim to provide the same level of functionality, if not better, than what Biology provides by default. Both systems work toward a full implementation of the [Native Biology Syntax](https://github.com/develop-biology/lang_bio).
+The Eons library is designed for plug-and-play development, unlike Biology. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded (due to Python limitations), while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is reduced to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex, build off each other, and be loaded from the cloud at runtime, we aim to provide the same level of functionality, if not better, than what Biology provides by default. Both systems work toward a full implementation of the [Eons Language of Development](https://github.com/develop-biology/language.development).
 
 Once Develop Biology is stable and the Native Biology Syntax is fully developed, the Eons Python Framework and all downstream implementations will be merged into a single, flexible, and optimized solution. However, the builtin reflection features of Biology should make it such that a successful integration means no changes to downstream code. Python can stay Python, or become any other language you want. Stay tuned!
 
@@ -52,6 +52,16 @@ Downstream implementors of the Eons library may optionally extend the `Fetch()` 
 You are also allowed to customize the order of each layer by reordering the `fetchFrom` member (list).
 
 NOTE: The supplied configuration file must contain only valid json.
+
+#### Global Fetch
+
+Eons provides an easy way to query the configuration values provided to it: a global `Fetch()` function.
+
+Calling `eons.Fetch('desired_config_value')` will return the result of invoking the Executor's `Fetch` method. This means any cli args, config values, environment variables, and anything else your Executor is configured to `fetchFrom` will be searched for your `desired_config_value`. This does not allow you to search a particular Functor's member variables (besides the Executor's). So, you can't execute a chain of Functors and then check the result using the global `Fetch()`. 
+
+To make this even easier, we aliased the global Fetch as `f()`. You can just type `eons.f('whatever')` and get the value of `whatever`!
+
+And, if that's too hard for you, you can use a `@recoverable` method (see Error Resolution, below) and just type `whatever`. Eons will do the hard work of catching the NameError and looking up the value. For an example, check out the [ResolvableByFetchFunctor](test/unit/TestResolveByFetch.py), under test.
 
 ### Implicit Inheritance
 
@@ -166,11 +176,9 @@ and we will get a `MyDatum` object, fully instantiated.
 
 When extending a program that derives from eons, defer to that program's means of extension. However, the following utilities may greatly aid in standardizing downstream code.
 
-### User Functor
+### Your Very Own Functors
 
-Functors store all args passed to them in the `kgwargs` member. While you can check this member directly for arguments, `Fetch(...)` is preferred.
-
-When extending `Functor`, please be aware that the following utilities are available to you:
+When creating your own Functors, derive from `eons.StandardFunctor` (unless you know what you're doing). The StandardFunctor just makes your life easier. For example, when extending `StandardFunctor`, the following utilities become available to you:
 ```python
 #RETURNS: an opened file object for writing.
 #Creates the path if it does not exist.
@@ -193,4 +201,7 @@ def Delete(this, target):
 def RunCommand(this, command, saveout=False, raiseExceptions=True):
     ...
 ```
-The source for these methods is available in [Functor.py](src/Functor.py).
+These methods take care of logging, some error resolution, and other things that the traditional python solutions fail to address.
+The source for these methods is available in [StandardFunctor.py](src/StandardFunctor.py).
+
+In your Functor, you should set the `____KWArgs` members in `__init__(this, name)` and define the `Function(this)` and `DidFunctionSucceed(this)` methods. That's pretty much it. For more advanced configuration, see [Functor.py](src/Functor.py).

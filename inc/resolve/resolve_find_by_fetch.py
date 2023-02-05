@@ -27,71 +27,46 @@ class find_by_fetch(eons.ErrorResolution):
 		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
 
 	def Resolve(this):
-		value = None
-		isSet = False
+		# Using builtins works. This logic has been moved to Executor.
+		# See below for a couple other ways this could be accomplished.
+		this.executor.SetGlobalFromFetch(this.errorObject)
+		this.errorShouldBeResolved = eons.util.HasAttr(builtins, this.errorObject)
 
-		if (this.executor.currentConfigKey):
-			config = this.executor.Fetch(this.executor.currentConfigKey)
-			if (this.errorObject in config):
-				value =  this.executor.EvaluateToType(getattr(config, this.errorObject))
-				isSet = True
+		# This method of modifying the function's source code is a potential alternative to global variables.
+		# However, it can be dangerous or just not work.
+		# And, if we got a NameError, we know there is no global of that name, so defining a new global should always be safe.
+		# This method of hacking the function's source also only works for the current function, whereas a global potentially keeps us from having to come back here again for another function.
+		# Lastly, it's far easier to keep track of what globals we've put where than which functions we've hacked and how. So, if we want to update the value of what we've Fetched here, globals are the way to go.
+		#
+		# # Get the source code of the erroring function.
+		# source = inspect.getsource(this.function)
+		#
+		# # Remove any extra indents from it.
+		# indent = source[0:len(source) - len(source.lstrip())]
+		# sourceMod = re.sub(fr"{indent}({indent}*)", r"\1", source)
+		#
+		# # Separate the declaration from the definition
+		# decl = ':'.join(sourceMod.split(':')[0])
+		# defin = ':'.join(sourceMod.split(':')[1:])
+		#
+		# # Add the new declaration to the top of the function
+		# defin = f"\n{indent}{this.errorObject} = {value}{defin}"
+		#
+		# # Bring it all back together
+		# sourceMod = decl + defin
+		# if (this.executor.verbosity > 3):
+		# 	logging.debug(f"Modified source for {this.function.__name__} is:\n{sourceMod}")
+		#
+		# # Now, in order to compile, we'll need the same imports as wherever that function came from.
+		# # ...
+		#
+		# # Compile the new function!
+		# code = compile(sourceMod, 'string', 'exec')
+		# this.function.__code__ = code
 
-		if (not isSet):
-			val, fetched = this.executor.Fetch(this.errorObject, start=False)
-			if (fetched):
-				value = this.executor.EvaluateToType(val)
-				isSet = True
-
-		if (isSet):
-			logging.debug(f"Setting {this.errorObject} = {value} in builtins")
-
-			# This method of modifying the function's source code is a potential alternative to global variables.
-			# However, it can be dangerous or just not work.
-			# And, if we got a NameError, we know there is no global of that name, so defining a new global should always be safe.
-			# This method of hacking the function's source also only works for the current function, whereas a global potentially keeps us from having to come back here again for another function.
-			# Lastly, it's far easier to keep track of what globals we've put where than which functions we've hacked and how. So, if we want to update the value of what we've Fetched here, globals are the way to go.
-			#
-			# # Get the source code of the erroring function.
-			# source = inspect.getsource(this.function)
-			#
-			# # Remove any extra indents from it.
-			# indent = source[0:len(source) - len(source.lstrip())]
-			# sourceMod = re.sub(fr"{indent}({indent}*)", r"\1", source)
-			#
-			# # Separate the declaration from the definition
-			# decl = ':'.join(sourceMod.split(':')[0])
-			# defin = ':'.join(sourceMod.split(':')[1:])
-			#
-			# # Add the new declaration to the top of the function
-			# defin = f"\n{indent}{this.errorObject} = {value}{defin}"
-			#
-			# # Bring it all back together
-			# sourceMod = decl + defin
-			# if (this.executor.verbosity > 3):
-			# 	logging.debug(f"Modified source for {this.function.__name__} is:\n{sourceMod}")
-			#
-			# # Now, in order to compile, we'll need the same imports as wherever that function came from.
-			# # TODO...
-			#
-			# # Compile the new function!
-			# code = compile(sourceMod, 'string', 'exec')
-			# this.function.__code__ = code
-
-			# Global variables in python are module scoped.
-			# So, we have to get the module of the erroring function and add a global variable to that.
-			# This does what it's supposed to but somehow doesn't update globals() in the other module, leaving the module's __dict__ and globals() entirely identical EXCEPT for the value that we want.
-			#
-			# moduleToHack = inspect.getmodule(this.function)
-			# setattr(moduleToHack, this.errorObject, value)
-
-			# This works.
-			#
-			# In cause the value was accessed with ".", we need to cast it to a DotDict.
-			if (isinstance(value, dict)):
-				exec(f"builtins.{this.errorObject} = eons.util.DotDict({value})")
-			else:
-				exec(f"builtins.{this.errorObject} = {value}")
-
-			this.errorShouldBeResolved = True
-		else:
-			this.errorShouldBeResolved = False
+		# Global variables in python are module scoped.
+		# So, we have to get the module of the erroring function and add a global variable to that.
+		# This does what it's supposed to but somehow doesn't update globals() in the other module, leaving the module's __dict__ and globals() entirely identical EXCEPT for the value that we want.
+		#
+		# moduleToHack = inspect.getmodule(this.function)
+		# setattr(moduleToHack, this.errorObject, value)

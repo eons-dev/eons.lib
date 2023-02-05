@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 from copy import deepcopy
+import builtins
 from .Constants import *
 from .Datum import Datum
 from .Exceptions import *
@@ -52,6 +53,7 @@ class Functor(Datum):
 		this.fetchFrom = [
 			'this',
 			'args',
+			'globals',
 			'config', #local (if applicable) or per Executor; should be before 'executor' if using a local config.
 			'precursor',
 			'executor',
@@ -338,7 +340,7 @@ class Functor(Datum):
 			return
 
 		for skw in this.staticKWArgs:
-			if (hasattr(this, skw)): # only in the case of children.
+			if (util.HasAttr(this, skw)): # only in the case of children.
 				continue
 
 			fetched = this.Fetch(skw)
@@ -457,7 +459,8 @@ class Functor(Datum):
 		dontFetchFrom = [
 			'this',
 			'environment',
-			'executor'
+			'executor',
+			'globals'
 		]
 		# Let 'next' evaluate its expressions if it chooses to. We don't need to do that pre-emptively.
 		this.Set('next', this.FetchWithout(dontFetchFrom, 'next', []), evaluateExpressions=False)
@@ -467,7 +470,7 @@ class Functor(Datum):
 	# NOTE: these should not be static nor cached, as calling something else before *this will change the behavior of *this.
 	def ValidateMethods(this):
 		for method in this.requiredMethods:
-			if (hasattr(this, method) and callable(getattr(this, method))):
+			if (util.HasAttr(this, method) and callable(util.GetAttr(this, method))):
 				continue
 
 			raise MissingMethodError(f"{this.name} has no method: {method}")
@@ -590,8 +593,8 @@ class Functor(Datum):
 	######## START: Fetch Locations ########
 
 	def fetch_location_this(this, varName, default, fetchFrom, attempted):
-		if (hasattr(this, varName)):
-			return getattr(this, varName), True
+		if (util.HasAttr(this, varName)):
+			return util.GetAttr(this, varName), True
 		return default, False
 
 
@@ -619,13 +622,19 @@ class Functor(Datum):
 
 	#NOTE: There is no config in the default Functor. This is done for the convenience of children.
 	def fetch_location_config(this, varName, default, fetchFrom, attempted):
-		if (not hasattr(this, 'config') or this.config is None):
+		if (not util.HasAttr(this, 'config') or this.config is None):
 			return default, False
 
-		for key, val in this.config.items():
+		for key, val in dict(this.config).items():
 			if (key == varName):
 				return val, True
 
+		return default, False
+
+
+	def fetch_location_globals(this, varName, default, fetchFrom, attempted):
+		if (util.HasAttr(builtins, varName)):
+			return util.GetAttr(builtins, varName), True
 		return default, False
 
 
