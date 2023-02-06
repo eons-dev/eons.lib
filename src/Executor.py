@@ -90,6 +90,14 @@ class Executor(DataContainer, Functor):
 		this.defaultConfigFile = None
 		this.defaultPackageType = ""
 
+		# Allow the config file to be in multiple formats.
+		# These are in preference order (e.g. if you want to look for a .txt file before a .json, add it to the top of the list).
+		this.configFileExtensions = [
+			"json",
+			"yaml",
+			"yml"
+		]
+
 		this.Configure()
 		this.RegisterIncludedClasses()
 		this.AddArgs()
@@ -259,8 +267,12 @@ class Executor(DataContainer, Functor):
 	def PopulateConfig(this):
 		this.config = None
 
-		if (this.parsedArgs.config is None):
-			this.parsedArgs.config = this.defaultConfigFile
+		if (this.parsedArgs.config is None and this.defaultConfigFile is not None):
+			for ext in this.configFileExtensions:
+				possibleConfig = f"{this.defaultConfigFile}.{ext}"
+				if (Path(possibleConfig).exists()):
+					this.parsedArgs.config = possibleConfig
+					break
 
 		logging.debug(f"Populating config from {this.parsedArgs.config}")
 
@@ -273,7 +285,7 @@ class Executor(DataContainer, Functor):
 
 		configFile = open(this.parsedArgs.config, "r")
 		# Yaml doesn't allow tabs. We do. Convert.
-		this.config = yaml.safe_load(configFile.read().replace('\t', ' '))
+		this.config = yaml.safe_load(configFile.read().replace('\t', '  '))
 		# this.config = jsonpickle.decode(configFile.read())
 		configFile.close()
 

@@ -1,0 +1,40 @@
+name: eons
+type: lib
+next:
+- build: py_package
+  build_in: pkg
+	copy:
+	- "/src/": "src/"
+	- "/inc/": "inc/"
+	- "/test/": "test/"
+	- "/README.md": "README.md"
+	- "/LICENSE": "LICENSE"
+	config:
+		clear_build_path: false
+		author_name: Eons
+		author_email: support@eons.llc
+		description: Eons Python Framework
+		package_url: "https://github.com/eons-dev/eons.lib"
+		license: MIT License
+		python_min: '3.7'
+		requirements:
+		- pyyaml
+		skip_module_detection:
+		- yaml
+		classifiers:
+		- 'Development Status :: 4 - Beta'
+		next:
+		- build: py_install
+			build_in: "../"
+			config: {}
+- build: py_test
+	build_in: "./"
+	config:
+		clear_build_path: false
+		test_path: "./test/unit/"
+		next:
+		- build: test
+			build_in: "./"
+			config:
+				test_path: "./test/integration/"
+				test_fixture: repo_connection.json
