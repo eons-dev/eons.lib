@@ -554,7 +554,8 @@ class Executor(DataContainer, Functor):
 				isSet = True
 
 		if (not isSet):
-			val, fetched = this.FetchWithout('globals', name, start=False)
+			logging.debug(f"Fetching {name}...")
+			val, fetched = this.FetchWithout(['globals', 'this'], name, start=False)
 			if (fetched):
 				value = this.EvaluateToType(val)
 				isSet = True
