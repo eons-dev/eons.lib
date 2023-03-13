@@ -21,7 +21,7 @@ import builtins
 # ILLEGAL: my_var.some_val = "new value"
 # OK: local = my_var.some_val
 class find_by_fetch(eons.ErrorResolution):
-	def __init__(this, name="find_in_config"):
+	def __init__(this, name="find_by_fetch"):
 		super().__init__(name)
 
 		this.ApplyTo('NameError', "name 'OBJECT' is not defined")

@@ -22,42 +22,60 @@ def RecoverableImplementation(obj, executor, function, *args, **kwargs):
 	except Exception as e:
 		if (not executor.resolveErrors):
 			raise e
+		return Recover(e, obj, executor, function, *args, **kwargs)
 
-		logging.warning(f"Got error '{e}' from function ({function}) by {obj.name}.")
-		util.LogStack()
 
-		# We have to use str(e) instead of pointers to Exception objects because multiple Exceptions will have unique addresses but will still be for the same error, as defined by string comparison.
-		if (str(e) not in executor.errorResolutionStack.keys()):
-			executor.errorResolutionStack.update({str(e):[]})
+def Recover(error, obj, executor, function, *args, **kwargs):
+	logging.warning(f"Got error '{error}' from function ({function}) by {obj.name}.")
+	util.LogStack()
 
-		# ResolveError should be the only method which adds to executor.errorResolutionStack.
-		# ResolveError is itself @recoverable.
-		# So, each time we hit this point, we should also hit a corresponding ClearErrorResolutionStack() call. 
-		# If we do not, an exception is passed to the caller; if we do, the stack will be cleared upon the last resolution.
-		executor.errorRecursionDepth = executor.errorRecursionDepth + 1
+	# We have to use str(e) instead of pointers to Exception objects because multiple Exceptions will have unique addresses but will still be for the same error, as defined by string comparison.
+	if (str(error) not in executor.errorResolutionStack.keys()):
+		executor.errorResolutionStack.update({str(error):[]})
 
-		if (executor.errorRecursionDepth > len(executor.errorResolutionStack.keys())+1):
-			raise FailedErrorResolution(f"Hit infinite loop trying to resolve errors. Recursion depth: {executor.errorRecursionDepth}; STACK: {executor.errorResolutionStack}.")
+	# The executor.errorResolutionStack grows each time we invoke *this or (indirectly) executor.ResolveError().
+	# ResolveError is itself @recoverable.
+	# So, each time we hit this point, we should also hit a corresponding ClearErrorResolutionStack() call.
+	# If we do not, an exception is passed to the caller; if we do, the stack will be cleared upon the last resolution.
+	executor.errorRecursionDepth = executor.errorRecursionDepth + 1
 
-		for i, res in enumerate(executor.resolveErrorsWith):
+	if (executor.errorRecursionDepth > len(executor.errorResolutionStack.keys())+1):
+		raise FailedErrorResolution(f"Hit infinite loop trying to resolve errors. Recursion depth: {executor.errorRecursionDepth}; STACK: {executor.errorResolutionStack}.")
 
-			logging.debug(f"Checking if {res} can fix '{e}'.")
-			if (not executor.ResolveError(e, i, obj, function)): # attempt to resolve the issue; might cause us to come back here with a new error.
-				# if no resolution was attempted, there's no need to re-run the function.
-				continue
-			try:
-				logging.debug(f"Trying function ({function}) again after applying {res}.")
-				ret = function(obj, *args, **kwargs)
-				executor.ClearErrorResolutionStack(str(e)) # success!
-				logging.recovery(f"{res} successfully resolved '{e}'!")
-				logging.debug(f"Error stack is now: {executor.errorResolutionStack}")
-				return ret
-			except Exception as e2:
-				logging.debug(f"{res} failed with '{e2}'; will ignore and see if we can use another ErrorResolution to resolve '{e}'.")
+	successfullyRecovered = False
+	ret = None
+	resolvedBy = None
+	for i, res in enumerate(executor.resolveErrorsWith):
+
+		logging.debug(f"Checking if {res} can fix '{error}'.")
+		if (not executor.ResolveError(error, i, obj, function)): # attempt to resolve the issue; might cause us to come back here with a new error.
+			# if no resolution was attempted, there's no need to re-run the function.
+			continue
+		try:
+			logging.debug(f"Trying function ({function}) again after applying {res}.")
+			resolvedBy = res
+			ret = function(obj, *args, **kwargs)
+			successfullyRecovered = True
+			break
+
+		except Exception as e2:
+			if (str(error) == str(e2)):
+				logging.debug(f"{res} failed with '{e2}'; will ignore and see if we can use another ErrorResolution to resolve '{error}'.")
 				# Resolution failed. That's okay. Let's try the next.
 				# Not all ErrorResolutions will apply to all errors, so we may have to try a few before we get one that works.
-				pass
+				continue
+			else:
+				# The error changed, maybe we're making progress.
+				ret = Recover(e2, obj, executor, function, *args, **kwargs)
+				successfullyRecovered = True
+				break
 
-		#  We failed to resolve the error. Die
-		sys.tracebacklimit = 0 # traceback is NOT helpful here.
-		raise FailedErrorResolution(f"Tried and failed to resolve: {e} STACK: {executor.errorResolutionStack}. See earlier logs (in debug) for traceback.")
+	if (successfullyRecovered):
+		executor.ClearErrorResolutionStack(str(error)) # success!
+		logging.recovery(f"{resolvedBy} successfully resolved '{error}'!")
+		logging.debug(f"Error stack is now: {executor.errorResolutionStack}")
+		return ret
+
+	#  We failed to resolve the error. Die
+	sys.tracebacklimit = 0 # traceback is NOT helpful here.
+	raise FailedErrorResolution(f"Tried and failed to resolve: {error} STACK: {executor.errorResolutionStack}. See earlier logs (in debug) for traceback.")

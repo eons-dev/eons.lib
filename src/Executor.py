@@ -40,8 +40,9 @@ class Executor(DataContainer, Functor):
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
-			"find_by_fetch",
+			'find_by_fetch',
 			'install_from_repo',
+			'import',
 			'install_with_pip'
 		]
 
