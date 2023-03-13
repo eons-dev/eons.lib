@@ -42,7 +42,7 @@ class Executor(DataContainer, Functor):
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
 			'find_by_fetch',
 			'install_from_repo',
-			'import',
+			'import_module',
 			'install_with_pip'
 		]
 
