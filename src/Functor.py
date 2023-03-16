@@ -409,12 +409,12 @@ class Functor(Datum):
 			else:
 				logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
-			if ('precursor' in this.kwargs):
-				this.precursor = this.kwargs.pop('precursor')
-				logging.debug(f"{this.name} was preceded by {this.precursor.name}")
-			else:
-				this.precursor = None
-				logging.debug(f"{this.name} was preceded by None")
+		if ('precursor' in this.kwargs):
+			this.precursor = this.kwargs.pop('precursor')
+			logging.debug(f"{this.name} was preceded by {this.precursor.name}")
+		else:
+			this.precursor = None
+			logging.debug(f"{this.name} was preceded by None")
 
 
 	# Override this with any additional argument validation you need.
