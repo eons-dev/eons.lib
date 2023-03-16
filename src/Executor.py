@@ -40,8 +40,9 @@ class Executor(DataContainer, Functor):
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
-			"find_by_fetch",
+			'find_by_fetch',
 			'install_from_repo',
+			'import_module',
 			'install_with_pip'
 		]
 
@@ -554,7 +555,8 @@ class Executor(DataContainer, Functor):
 				isSet = True
 
 		if (not isSet):
-			val, fetched = this.FetchWithout('globals', name, start=False)
+			logging.debug(f"Fetching {name}...")
+			val, fetched = this.FetchWithout(['globals', 'this'], name, start=False)
 			if (fetched):
 				value = this.EvaluateToType(val)
 				isSet = True

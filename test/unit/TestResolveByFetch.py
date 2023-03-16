@@ -5,7 +5,7 @@ from StandardTestFixture import StandardTestFixture
 class TestResolveByFetch(StandardTestFixture):
 
 	def test_find_by_fetch(this):
-		this.executor.testdotdict = {
+		this.executor.extraArgs['testdotdict'] = {
 			"testval": 5
 		}
 
