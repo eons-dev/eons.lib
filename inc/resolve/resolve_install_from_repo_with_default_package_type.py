@@ -9,6 +9,7 @@ class install_from_repo_with_default_package_type(eons.ErrorResolution):
 		super().__init__(name)
 
 		this.ApplyTo('ModuleNotFoundError', "No module named 'OBJECT'")
+		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
 
 	def Resolve(this):
 		this.errorShouldBeResolved = this.executor.DownloadPackage(f"{this.errorObject}.{this.executor.defaultPackageType}")
