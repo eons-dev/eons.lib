@@ -503,18 +503,11 @@ class Functor(Datum):
 		return this.GetExecutor().Execute(next, precursor=this, next=this.next)
 
 
-	# Make functor.
-	# Don't worry about this; logic is abstracted to Function
-	def __call__(this, *args, **kwargs) :
-		logging.debug(f"<---- {this.name} ---->")
+	def WarmUp(this, *args, **kwargs):
 
 		this.args = args
 		this.kwargs = kwargs
-
-		logging.debug(f"{this.name}({this.args}, {this.kwargs})")
-
-		ret = None
-		nextRet = None
+		
 		try:
 			this.PopulatePrecursor()
 			this.Initialize() # nop on call 2+
@@ -524,9 +517,25 @@ class Functor(Datum):
 			this.PopulateNext()
 			this.ValidateArgs()
 			this.ValidateMethods()
+		except Exception as e:
+			if (this.raiseExceptions):
+				raise e
+			else:
+				logging.error(f"ERROR: {e}")
+				util.LogStack()
+
+
+	# Make functor.
+	# Don't worry about this; logic is abstracted to Function
+	def __call__(this, *args, **kwargs) :
+		logging.debug(f"<---- {this.name} ---->")
+		ret = None
+		nextRet = None
+		try:
+			this.WarmUp(*args, **kwargs)
+			logging.debug(f"{this.name}({this.args}, {this.kwargs})")
 
 			this.BeforeFunction()
-
 			ret = this.Function()
 
 			if (this.DidFunctionSucceed()):
