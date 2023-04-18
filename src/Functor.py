@@ -493,14 +493,27 @@ class Functor(Datum):
 	def CallNext(this):
 		if (not this.next):
 			return None
+		
+		# Something odd happens here; we've been getting:
+		# AttributeError("'builtin_function_or_method' object has no attribute 'pop'")
+		# But that implies we're getting a valid next object that is not a list.
+		# FIXME: Debug this.
+		proceedToNext = False
+		next = None
+		try:
+			next = this.next.pop(0)
+			proceedToNext = True
+		except Exception as e:
+			logging.error(f"{this.name} not proceeding to next: {e}; next: {this.next}")
+			return None
 
 		if (this.GetExecutor() is None):
 			raise InvalidNext(f"{this.name} has no executor and cannot execute next ({this.next}).")
 
-		next = this.next.pop(0)
-		if (not this.ValidateNext(next)):
-			raise InvalidNext(f"Failed to validate {next}")
-		return this.GetExecutor().Execute(next, precursor=this, next=this.next)
+		if (proceedToNext):
+			if (not this.ValidateNext(next)):
+				raise InvalidNext(f"Failed to validate {next}")
+			return this.GetExecutor().Execute(next, precursor=this, next=this.next)
 
 
 	def WarmUp(this, *args, **kwargs):
