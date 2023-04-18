@@ -247,6 +247,7 @@ class Executor(DataContainer, Functor):
 	def RegisterIncludedClasses(this):
 		includePaths = [
 			'resolve',
+			'method'
 		]
 		for path in includePaths:
 			this.RegisterAllClassesInDirectory(str(Path(__file__).resolve().parent.joinpath(path)))
@@ -316,6 +317,9 @@ class Executor(DataContainer, Functor):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
 
+		if (this.verbosity == 0):
+			logging.getLogger().handlers[0].setLevel(logging.CRITICAL)
+			logging.getLogger().setLevel(logging.CRITICAL)
 		if (this.verbosity == 1):
 			logging.getLogger().handlers[0].setLevel(logging.WARNING)
 			logging.getLogger().setLevel(logging.WARNING)

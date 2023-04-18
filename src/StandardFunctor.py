@@ -104,21 +104,23 @@ class StandardFunctor(Functor):
 	@method()
 	def RunCommand(this, command, saveout=False, raiseExceptions=True):
 		logging.debug(f"================ Running command: {command} ================")
-		p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
+		process = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
 		output = []
-		while p.poll() is None:
-			line = p.stdout.readline().decode('utf8')[:-1]
+		while process.poll() is None:
+			line = process.stdout.readline().decode('utf8')[:-1]
 			if (saveout):
 				output.append(line)
 			if (line):
 				logging.debug(f"| {line}")  # [:-1] to strip excessive new lines.
 
-		if (p.returncode is not None and p.returncode):
-			raise CommandUnsuccessful(f"Command returned {p.returncode}: {command}")
+		message = f"Command returned {process.returncode}: {command}"
+		logging.debug(message)
+		if (raiseExceptions and process.returncode is not None and process.returncode):
+			raise CommandUnsuccessful(message)
 		
 		logging.debug(f"================ Completed command: {command} ================")
 		if (saveout):
-			return p.returncode, output
+			return process.returncode, output
 		
-		return p.returncode
+		return process.returncode
 	######## END: UTILITIES ########

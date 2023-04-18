@@ -130,14 +130,14 @@ class Functor(Datum):
 		pass
 
 
-	# Override this to check results of operation and report on status.
-	# Override this to perform whatever success checks are necessary.
+	# Return whether or not Function was successful.
+	# Override this to perform whatever success and failure checks are necessary.
 	def DidFunctionSucceed(this):
 		return this.functionSucceeded
 
 
 	# RETURN whether or not the Rollback was successful.
-	# Override this to perform whatever success checks are necessary.
+	# Override this to perform whatever success and failure checks are necessary.
 	def DidRollbackSucceed(this):
 		return this.rollbackSucceeded
 

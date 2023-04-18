@@ -40,7 +40,7 @@
           {
             "kind" : "command",
             "check" : "output",
-            "command" : "testexecutor -q -q",
+            "command" : "testexecutor --verbosity 0",
             "expected" : [
               "Hello world!",
               ""
