@@ -31,11 +31,12 @@ Arguments available to all Eons Executors:
 
 ## Features
 
-Eons supports 4 major features:
-* Get inputs to functors by drilling down through multiple layers
-* Allow functors to change behavior with their order of execution
-* Provide functionality by downloading functors on the fly
-* Resolve errors through dynamic resolution by functors
+Eons supports 5 major features:
+* Get inputs to functors by drilling down through multiple layers.
+* Allow functors to change behavior with their order of execution.
+* Provide functionality by downloading functors on the fly.
+* Managed composition through External Methods.
+* Resolve errors through dynamic resolution by functors.
 
 ### Inputs Through Configuration File and `Fetch()`
 
@@ -96,6 +97,29 @@ You may also publish to the online repository through [ebbs](https://github.com/
 
 NOTE: per the above section on the Configuration File, you can set `repo_username` in the environment to avoid passing credentials on the command line, or worse, you can store them in plain text in the configuration file ;)
 
+### Managed Composition via `@eons.method(impl="External")`
+
+Composition is a means of building complexity through encapsulation and typically answers the question of "has a ____", where classic inheritance answers "is a ____".
+Eons provides a means of making composition easy through the External Method implementation.
+
+For example, consider:
+```
+class MyClass(eons.Functor):
+    @method(impl="External")
+    def MyExternalFunctor(): pass
+```
+Here, we use a Functor called "MyExternalFunctor" to compose MyClass. The actual code for MyExternalFunctor is not provided here, but is instead retrieved through `GetRegistered()`, as described above. 
+
+Using this technique, we can reuse Functors within other Functors, and none of the code has to be present on the local system at runtime but can be supplied as needed.
+
+#### Requirements & Notes
+
+1. Circular dependencies are not supported. Because of this, any Functors used to compose more complex classes should be stored in sub-folders in the package or repo_store. Sub-folders will be registered before parent directories. See [Self Registration](#self-registration) for more info.
+
+2. When calling an External Method, the members of the Functor are not accessible through the function (e.g. `MyClass.MyExternalFunctor.DidFunctionSucceed()` is not currently supported). To accomplish such behavior, you must currently access the External Method through the `methods` member. For example, `MyClass.methods['MyExternalFunctor'].DidFunctionSucceed()`.
+
+3. All arguments the External Method accepts are valid to provide to the function. For example, if `MyExternalFunctor` accepts `my_arg` as an argument, you can call `MyClass.MyExternalFunctor(my_arg='whatever')`.
+
 ### Error Resolution for `@recoverable` Methods
 
 Any method (i.e. member function) of Executor or Functor may be decorated with `@recoverable`. If a `@recoverable` method raises an Exception, the Eons error resolution system will engage and attempt to fix the problem.
@@ -109,9 +133,26 @@ NOTE: all ErrorResolution packages should have the 'resolve_' prefix so that the
 
 Check out [install_from_repo](inc/resolve/resolve_install_from_repo.py) for an example.
 
+## Inheritance Overview
+
+Inheritance allows you to build functionality without duplicating code and is a primary driver for the core programming tenant of never writing the same line twice.
+
+Eons supports several kinds of inheritance. Notably:
+* Classic Inheritance
+* Implicit Inheritance (i.e. Sequence)
+* External Methods (i.e. composition)
+
+| Inheritance Style | Relationship | Compiletime | Runtime | Method & Member Accessibility | Type Sharing |
+| :---              | :---         |    :----:   |  :---:  |            :---:              |     :---:    |
+| Classic           |is a|:heavy_check_mark:|:x:|:heavy_check_mark:|:heavy_check_mark:|
+| Implicit          |how does|:x:|:heavy_check_mark:|:heavy_check_mark:|:x:|
+| External          |has a|:heavy_check_mark:|:x:|:x:|:x:|
+
+You are not restricted to a single kind of inheritance. You can, and are encouraged, to use all forms of inheritance in your code!
+
 ## Performance
 
-At Eons, we always prefer functionality over performance. This is the same as the whole "don't prematurely optimize" argument. With that said, optimizing is always good and we try to do it as much as possible.
+At Eons LLC, we always prefer functionality over performance. This is the same as the whole "don't prematurely optimize" argument. With that said, optimizing is always good and we try to do it as much as possible.
 
 Please let us know if you are hitting any bottlenecks in this or any of our other libraries! 
 
@@ -122,7 +163,7 @@ Functors. Functors...
 ### Functors
 
 Functors are classes (objects) that have an invokable `()` operator. This allows you to treat them like functions.
-Eons uses functors (implemented as the Functor class) to provide input, analysis, and output functionalities, which are made simple through classical and implicit inheritance.
+Eons uses functors (implemented as the Functor class) to provide input, analysis, and output functionalities, which are made simple through classic and implicit inheritance.
 
 Imagine you write 2 functions that take inputs `a` and `b`. You can choose to duplicate these inputs, as is the classic means of writing functions: `firstFunction(a, b)` and `secondFunction(a, b)`. However, with Functors, you can make `baseFunctor{inputs=[a,b]}` and then simply `firstFunctor(baseFunctor)` and `secondFunctor(baseFunctor)`, thus creating 2 Functors with identical inputs. The result of `firstFunctor(a, b) == firstFunction(a, b)` and likewise for the seconds; only, by using Functors we've saved ourselves from duplicating code.
 
@@ -144,9 +185,11 @@ For other supported features, check out [Functor.py](src/Functor.py)
 
 ### Self Registration
 
-Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using Eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is usually done for you based on the `repo['store']` and `defaultRepoDirectory` members), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
+Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using Eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is usually done for you based on the `repo.store` and `defaultRepoDirectory` members), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
 
 Dynamic error resolutions enables this self registration system to work with inheritance as well. This means that, within downloaded functor, you can `from some_module_to_download import my_desired_class` to download another.
+
+NOTE: `SelfRegistering.RegisterAllClassesInDirectory(...)` is depth-first, meaning any sub-folders in the given folder will be loaded before the parent directory. This helps to organzie inheritance dependencies, but can be disabled with `recurse=False`.
 
 #### Example
 
