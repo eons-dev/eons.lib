@@ -10,7 +10,8 @@ class Includes(object):
 			'executor',
 			'functor',
 			'inheritance',
-			'method'
+			'method',
+			'flow'
 		]
 		for i in this.includes:
 			setattr(this, f"{i}_path", str(this.incPath.joinpath(i)))

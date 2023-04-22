@@ -12,12 +12,14 @@ class External(eons.Method):
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True
 
-		this.type = eons.ExecutorTracker.GetLatest().defaultPackageType
-
+		this.type = None
 		this.functorName = ""
 		this.functor = None
 
 	def UpdateSource(this):
+		if (not this.type):
+			this.type = eons.ExecutorTracker.GetLatest().defaultPackageType
+
 		this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type)
 
 		if (not this.functor):

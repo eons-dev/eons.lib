@@ -47,14 +47,22 @@ class SelfRegistering(object):
 
 		return child
 
+	# Registering classes is typically depth-first.
 	@staticmethod
-	def RegisterAllClassesInDirectory(directory):
+	def RegisterAllClassesInDirectory(directory, recurse=True):
 		logging.debug(f"Loading SelfRegistering classes in {directory}")
-		logging.debug(f"Available modules: {os.listdir(directory)}")
-		for file in os.listdir(directory):
-			if (file.startswith('_') or not file.endswith('.py')):
-				continue
+		directoryContents = [i for i in sorted(os.listdir(directory)) if not i.startswith('_')]
 
+		directories = [i for i in directoryContents if os.path.isdir(os.path.join(directory, i))]
+		files = [i for i in directoryContents if os.path.isfile(os.path.join(directory, i))]
+		files = [f for f in files if f.endswith('.py')]
+
+		if (recurse):
+			for dir in directories:				
+				SelfRegistering.RegisterAllClassesInDirectory(os.path.join(directory, dir), recurse)
+
+		logging.debug(f"Available modules: {files}")
+		for file in files:
 			moduleName = file.split('.')[0]
 
 			# logging.debug(f"Attempting to registering classes in {moduleName}.")

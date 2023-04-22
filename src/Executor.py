@@ -65,6 +65,7 @@ class Executor(DataContainer, Functor):
 
 		# config is loaded with the contents of a JSON config file specified by --config / -c or by the defaultConfigFile location, below.
 		this.config = None
+		this.configType = None
 
 		# *this will keep track of any global variables it creates.
 		# All globals should be read only.
@@ -95,9 +96,12 @@ class Executor(DataContainer, Functor):
 		# Allow the config file to be in multiple formats.
 		# These are in preference order (e.g. if you want to look for a .txt file before a .json, add it to the top of the list).
 		this.configFileExtensions = [
-			"json",
+			"flow",
+			"py",
 			"yaml",
-			"yml"
+			"json",
+			"flw",
+			"yml",
 		]
 
 		this.Configure()
@@ -266,9 +270,23 @@ class Executor(DataContainer, Functor):
 		this.RegisterAllClassesInDirectory(this.repo.store)
 
 
+	# Grok the configFile and populate this.config
+	def ParseConfigFile(this, configFile):
+		if (this.configType in ['py']):
+			this.RegisterAllClassesInDirectory(Path('./').joinpath('/'.join(this.parsedArgs.config.split['/'][:-1])))
+			functor = SelfRegistering(this.parsedArgs.config.split('/')[-1].split('.')[0])
+			this.config = functor(executor=this)
+		elif (this.configType in ['json', 'yml', 'yaml']):
+			# Yaml doesn't allow tabs. We do. Convert.
+			this.config = yaml.safe_load(configFile.read().replace('\t', '  '))
+		else:
+			raise ExecutorSetupError(f"Unknown configuration file type: {this.configType}")
+
+
 	# Populate the configuration details for *this.
 	def PopulateConfig(this):
 		this.config = None
+		this.configType = None
 
 		if (this.parsedArgs.config is None and this.defaultConfigFile is not None):
 			for ext in this.configFileExtensions:
@@ -285,11 +303,11 @@ class Executor(DataContainer, Functor):
 		if (not os.path.isfile(this.parsedArgs.config)):
 			logging.error(f"Could not open configuration file: {this.parsedArgs.config}")
 			return
+		
+		this.configType = this.parsedArgs.config.split('.')[-1]
 
 		configFile = open(this.parsedArgs.config, "r")
-		# Yaml doesn't allow tabs. We do. Convert.
-		this.config = yaml.safe_load(configFile.read().replace('\t', '  '))
-		# this.config = jsonpickle.decode(configFile.read())
+		this.ParseConfigFile(configFile)
 		configFile.close()
 
 
@@ -354,10 +372,16 @@ class Executor(DataContainer, Functor):
 
 		this.extraArgs = dict(zip(extraArgsKeys, extraArgsValues))
 
+
 	# Functor method.
 	# We have to ParseArgs() here in order for other Executors to use ____KWArgs...
 	def ParseInitialArgs(this):
 		this.ParseArgs() # first, to enable debug and other such settings.
+
+		# Track *this globally
+		# This needs to be done before the config is populated, in case we use a py file that has External Methods.
+		ExecutorTracker.Instance().Push(this)
+
 		this.PopulateConfig()
 		this.SetVerbosity()
 		this.SetLogFile()
@@ -373,9 +397,6 @@ class Executor(DataContainer, Functor):
 		
 		# NOTE: class registration may instantiate other Executors.
 		this.RegisterAllClasses()
-
-		# Track *this globally
-		ExecutorTracker.Instance().Push(this)
 		
 		this.InitData()
 
@@ -389,6 +410,27 @@ class Executor(DataContainer, Functor):
 	def AfterFunction(this):
 		this.TeardownLogging()
 
+
+	def WarmUpFlow(this, flow):
+		flow.WarmUp(executor=this)
+
+
+	# Flows are domain-like strings which can be resolved to a Functor.
+	@recoverable
+	def Flow(this, flow):
+		logging.debug(f"Calculating flow: {flow}")
+
+		flowList = flow.split('.')
+		flowList.reverse()
+		current = this.GetRegistered(flowList.pop(0), 'flow')
+		while (True):
+			this.WarmUpFlow(current)
+			if (not len(flowList)):
+				break
+
+			current = current.methods[flowList.pop(0)]
+		return current()
+	
 
 	# Execute a Functor based on name alone (not object).
 	# If the given Functor has been Executed before, the cached Functor will be called again. Otherwise, a new Functor will be constructed.

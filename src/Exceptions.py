@@ -13,6 +13,9 @@ class MissingMethodError(FunctorError, metaclass=ActualType): pass
 class CommandUnsuccessful(FunctorError, metaclass=ActualType): pass
 class InvalidNext(FunctorError, metaclass=ActualType): pass
 
+class ExecutorError(FunctorError, metaclass=ActualType): pass
+class ExecutorSetupError(ExecutorError, metaclass=ActualType): pass
+
 class ErrorResolutionError(Exception, metaclass=ActualType): pass
 class FailedErrorResolution(ErrorResolutionError, metaclass=ActualType): pass
 

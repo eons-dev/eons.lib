@@ -100,6 +100,8 @@ def {wrappedFunctionName}(this):
 		exec(code)
 		exec(f'this.Function = {wrappedFunctionName}.__get__(this, this.__class__)')
 
+
+
 	# Parse arguments and update the source code
 	# TODO: Implement full python parser to avoid bad string replacement (e.g. "def func(self):... self.selfImprovement" => "... this.object.this.object.Improvement").
 	def PopulateFrom(this, function):
@@ -145,7 +147,9 @@ def {wrappedFunctionName}(this):
 		this.original.function = function
 
 		this.PopulateFrom(function)
-		this.UpdateSource()
+		
+		# UpdateSource is called by Functor.PopulateMethods()
+		# this.UpdateSource()
 
 
 	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.

@@ -42,7 +42,8 @@ class StandardTestFixture(object):
 			'method', #Should be first
 			'datum',
 			'data_container',
-			'functor'
+			'functor',
+			'flow',
 		]
 		for r in register:
 			this.executor.RegisterAllClassesInDirectory(GetIncludePath(r))
