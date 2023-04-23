@@ -664,6 +664,9 @@ class Functor(Datum):
 		envVar = os.getenv(varName)
 		if (envVar is not None):
 			return envVar, True
+		envVar = os.getenv(varName.upper())
+		if (envVar is not None):
+			return envVar, True
 		return default, False
 
 	######## END: Fetch Locations ########
