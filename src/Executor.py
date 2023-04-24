@@ -95,13 +95,12 @@ class Executor(DataContainer, Functor):
 
 		# Allow the config file to be in multiple formats.
 		# These are in preference order (e.g. if you want to look for a .txt file before a .json, add it to the top of the list).
+		# Precedence should prefer more structured and machine-generated configs over file formats easier for humans to work with.
 		this.configFileExtensions = [
-			"flow",
-			"py",
-			"yaml",
 			"json",
-			"flw",
+			"yaml",
 			"yml",
+			"py",
 		]
 
 		this.Configure()
