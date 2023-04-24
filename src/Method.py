@@ -56,6 +56,9 @@ class Method(Functor):
 	def __init__(this, name=INVALID_NAME()):
 		super().__init__(name)
 
+		# Methods do not fetch from the environment by default.
+		this.fetchFrom.remove('environment')
+
 		# Whether or not *this should be combined with other Methods of the same name.
 		this.inheritMethods = True
 
