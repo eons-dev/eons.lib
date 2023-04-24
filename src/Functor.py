@@ -400,7 +400,7 @@ class Functor(Datum):
 
 
 
-# Set this.precursor
+	# Set this.precursor
 	# Also set this.executor because it's easy.
 	def PopulatePrecursor(this):
 		if (this.executor is None):
