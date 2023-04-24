@@ -8,13 +8,6 @@ next:
 	config:
 		clear_build_path: false
 		proxy: "../../config/local.yaml"
-		next:
-		- run_when_any:
-			- release
-			build: py_publish
-			build_in: "./"
-			config:
-				clear_build_path: false
 - run_when_any:
 	- schedule
 	build: proxy

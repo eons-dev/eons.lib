@@ -1,40 +1,54 @@
 name: eons
 type: lib
+clear_build_path: false
 next:
-- build: py_package
-  build_in: pkg
-	copy:
-	- "/src/": "src/"
-	- "/inc/": "inc/"
-	- "/test/": "test/"
-	- "/README.md": "README.md"
-	- "/LICENSE": "LICENSE"
+- build: default
+	build_in: py
+	config:
+		next:
+		- build: py_package
+			build_in: pkg
+			copy:
+			- "/src/": "src/"
+			- "/inc/": "inc/"
+			- "/test/": "test/"
+			- "/README.md": "README.md"
+			- "/LICENSE": "LICENSE"
+			config:
+				clear_build_path: false
+				author_name: Eons
+				author_email: support@eons.llc
+				description: Eons Python Framework
+				package_url: "https://github.com/eons-dev/eons.lib"
+				license: MIT License
+				python_min: '3.7'
+				requirements:
+				- pyyaml
+				skip_module_detection:
+				- yaml
+				classifiers:
+				- 'Development Status :: 4 - Beta'
+- build: py_install
+	path: ../
+	build_in: py
 	config:
 		clear_build_path: false
-		author_name: Eons
-		author_email: support@eons.llc
-		description: Eons Python Framework
-		package_url: "https://github.com/eons-dev/eons.lib"
-		license: MIT License
-		python_min: '3.7'
-		requirements:
-		- pyyaml
-		skip_module_detection:
-		- yaml
-		classifiers:
-		- 'Development Status :: 4 - Beta'
-		next:
-		- build: py_install
-			build_in: "../"
-			config: {}
 - build: py_test
-	build_in: "./"
+	path: ../
+	build_in: py
 	config:
 		clear_build_path: false
 		test_path: "./test/unit/"
-		next:
-		- build: test
-			build_in: "./"
-			config:
-				test_path: "./test/integration/"
-				test_fixture: repo_connection.json
+- build: test
+	path: ../
+	build_in: py
+	config:
+		test_path: "./test/integration/"
+		test_fixture: repo_connection.json
+- build: py_publish
+	run_when_any:
+	- release
+	path: ../
+	build_in: py
+	config:
+		clear_build_path: false
