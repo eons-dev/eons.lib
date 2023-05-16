@@ -7,6 +7,7 @@ from .Constants import *
 from .Datum import Datum
 from .Exceptions import *
 from .Utils import util
+from .FunctorTracker import FunctorTracker
 # Don't import Method or Executor, even though they are required: it will cause a circular dependency.
 # Instead, pretend there's a forward declaration here and don't think too hard about it ;)
 ################################################################################
@@ -21,6 +22,10 @@ class Functor(Datum):
 
 	def __init__(this, name=INVALID_NAME()):
 		super().__init__(name)
+
+		# Which method to call when executing *this through __call__.
+		this.callMethod = 'Function'
+		this.rollbackMethod = 'Rollback'
 
 		this.initialized = False
 
@@ -154,6 +159,16 @@ class Functor(Datum):
 
 	# Override this with any logic you'd like to run at the bottom of __call__
 	def AfterFunction(this):
+		pass
+
+
+	# Override this with any logic you'd like to run at the top of __call__
+	def BeforeRollback(this):
+		pass
+
+
+	# Override this with any logic you'd like to run at the bottom of __call__
+	def AfterRollback(this):
 		pass
 
 	# Create a list of methods / member functions which will search different places for a variable.
@@ -541,35 +556,38 @@ class Functor(Datum):
 	# Make functor.
 	# Don't worry about this; logic is abstracted to Function
 	def __call__(this, *args, **kwargs) :
-		logging.debug(f"<---- {this.name} ---->")
+		logging.debug(f"{this.name} ({args}, {kwargs}) {{")
+		FunctorTracker.Push(this)
+
 		ret = None
 		nextRet = None
+		
 		try:
 			this.WarmUp(*args, **kwargs)
 			logging.debug(f"{this.name}({this.args}, {this.kwargs})")
 
-			this.BeforeFunction()
-			ret = this.Function()
+			getattr(this, f"Before{this.callMethod}")()
+			ret = getattr(this, this.callMethod)()
 
-			if (this.DidFunctionSucceed()):
+			if (getattr(this, f"Did{this.callMethod}Succeed")()):
 					this.result = 1
 					# logging.info(f"{this.name} successful!")
 					nextRet = this.CallNext()
 			elif (this.enableRollback):
 				logging.warning(f"{this.name} failed. Attempting Rollback...")
-				this.Rollback()
-				if (this.DidRollbackSucceed()):
+				ret = getattr(this, this.rollbackMethod)()
+				if (getattr(this, f"Did{this.rollbackMethod}Succeed")()):
 					this.result = 2
 					# logging.info(f"Rollback succeeded. All is well.")
 					nextRet = this.CallNext()
 				else:
 					this.result = 3
-					logging.error(f"Rollback FAILED! SYSTEM STATE UNKNOWN!!!")
+					logging.error(f"ROLLBACK FAILED! SYSTEM STATE UNKNOWN!!!")
 			else:
 				this.result = 4
 				logging.error(f"{this.name} failed.")
 
-			this.AfterFunction()
+			getattr(this, f"After{this.callMethod}")()
 
 		except Exception as e:
 			if (this.raiseExceptions):
@@ -581,11 +599,14 @@ class Functor(Datum):
 		if (this.raiseExceptions and this.result > 2):
 			raise FunctorError(f"{this.name} failed with result {this.result}")
 
-		logging.debug(f">---- {this.name} complete ----<")
 		if (nextRet is not None):
-			return nextRet
-		else:
-			return ret
+			ret = nextRet
+
+		logging.debug(f"return {ret}")
+		logging.debug(f"}} #{this.name}")
+
+		FunctorTracker.Pop(this)
+		return ret
 
 
 	# Adapter for @recoverable.

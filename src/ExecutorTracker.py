@@ -1,5 +1,4 @@
 import logging
-import ctypes
 
 # ExecutorTracker is a global singleton which keeps a record of all Executors that have been launched.
 # This can be abused quite a bit, so please try to restrict usage of this to only:

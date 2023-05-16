@@ -17,6 +17,7 @@ from .SelfRegistering import SelfRegistering
 from .Recoverable import recoverable
 from .Utils import util
 from .ExecutorTracker import ExecutorTracker
+from .FunctorTracker import FunctorTracker
 
 # Executor: a base class for user interfaces.
 # An Executor is a functor and can be executed as such.
@@ -35,7 +36,6 @@ class Executor(DataContainer, Functor):
 
 		super().__init__(name)
 
-		# Error resolution configuration.
 		this.resolveErrors = True
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}
@@ -164,7 +164,7 @@ class Executor(DataContainer, Functor):
 		class CustomFormatter(logging.Formatter):
 
 			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s'
-			format = ' [%(levelname)4s] %(message)s '
+			format = ' [%(levelname)4s] __INDENTATION__ %(message)s '
 			postFormat = util.console.GetColorCode('white', 'dark') + '(%(filename)s:%(lineno)s)' + util.console.resetStyle
 
 			formats = {
@@ -178,6 +178,10 @@ class Executor(DataContainer, Functor):
 
 			def format(this, record):
 				log_fmt = this.formats.get(record.levelno)
+				if (hasattr(logging.getLogger(), 'tab_logs') and getattr(logging.getLogger(), 'tab_logs')):
+					log_fmt = log_fmt.replace('__INDENTATION__', '\t' * FunctorTracker.GetCount())
+				else:
+					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
 				return formatter.format(record)
 
@@ -346,6 +350,12 @@ class Executor(DataContainer, Functor):
 		elif(this.verbosity >= 3):
 			logging.getLogger().handlers[0].setLevel(logging.DEBUG)
 			logging.getLogger().setLevel(logging.DEBUG)
+
+		if (fetch):
+			tabLogs, foundTabLogs = this.Fetch('tab_logs', False, ['args', 'config', 'environment'], start=False)
+			tabLogs = this.EvaluateToType(tabLogs)
+			if (tabLogs or (this.verbosity >= 3 and not foundTabLogs)):
+				setattr(logging.getLogger(), 'tab_logs', True)
 
 
 	# Do the argparse thing.
