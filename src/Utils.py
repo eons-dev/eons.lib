@@ -108,7 +108,7 @@ class util:
 			if (background != 'none'):
 				compiledCode += f";{cls.backgroundCodes[background]}"
 			if (styles):
-				compiledCode += ';' + ';'.join([str(cls.styleCodes[s]) for s in styles])
+				compiledCode += ';' + ';'.join([str(cls.styleCodes[s]) for s in list(styles)])
 			compiledCode += 'm'
 			return compiledCode
 

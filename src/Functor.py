@@ -603,9 +603,9 @@ class Functor(Datum):
 			ret = nextRet
 
 		logging.debug(f"return {ret}")
-		logging.debug(f"}} #{this.name}")
-
 		FunctorTracker.Pop(this)
+		logging.debug(f"}} ({this.name})")
+
 		return ret
 
 

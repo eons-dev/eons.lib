@@ -163,23 +163,29 @@ class Executor(DataContainer, Functor):
 
 		class CustomFormatter(logging.Formatter):
 
-			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s'
-			format = ' [%(levelname)4s] __INDENTATION__ %(message)s '
+			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s '
+			levelName = '[%(levelname)8s] '
+			indentation = util.console.GetColorCode('blue', 'dark', styles=['faint']) + '__INDENTATION__' + util.console.GetColorCode('white', 'dark', styles=['none'])
+			message = '%(message)s '
 			postFormat = util.console.GetColorCode('white', 'dark') + '(%(filename)s:%(lineno)s)' + util.console.resetStyle
 
 			formats = {
-				logging.DEBUG: preFormat + util.console.GetColorCode('cyan', 'dark') + format + postFormat,
-				logging.INFO: preFormat + util.console.GetColorCode('white', 'light') + format + postFormat,
-				logging.WARNING: preFormat + util.console.GetColorCode('yellow', 'light') + format + postFormat,
-				logging.ERROR: preFormat + util.console.GetColorCode('red', 'dark') + format + postFormat,
-				logging.RECOVERY: preFormat + util.console.GetColorCode('green', 'light') + format + postFormat,
-				logging.CRITICAL: preFormat + util.console.GetColorCode('red', 'light', styles=['bold']) + format + postFormat
+				logging.DEBUG: preFormat + levelName + indentation + util.console.GetColorCode('cyan', 'dark') + message + postFormat,
+				logging.INFO: preFormat + levelName + indentation + util.console.GetColorCode('white', 'light') + message + postFormat,
+				logging.WARNING: preFormat + levelName + indentation + util.console.GetColorCode('yellow', 'light') + message + postFormat,
+				logging.ERROR: preFormat + levelName + indentation + util.console.GetColorCode('red', 'dark') + message + postFormat,
+				logging.RECOVERY: preFormat + levelName + indentation + util.console.GetColorCode('green', 'light') + message + postFormat,
+				logging.CRITICAL: preFormat + levelName + indentation + util.console.GetColorCode('red', 'light', styles=['bold']) + message + postFormat
 			}
 
 			def format(this, record):
 				log_fmt = this.formats.get(record.levelno)
 				if (hasattr(logging.getLogger(), 'tab_logs') and getattr(logging.getLogger(), 'tab_logs')):
-					log_fmt = log_fmt.replace('__INDENTATION__', '\t' * FunctorTracker.GetCount())
+					tabWidth = 4
+					if (hasattr(logging.getLogger(), 'tab_width')):
+						tabWidth = getattr(logging.getLogger(), 'tab_width')
+					tabWidth = int(tabWidth) - 1
+					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * tabWidth}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
 				else:
 					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
@@ -331,9 +337,11 @@ class Executor(DataContainer, Functor):
 	# This method should set log levels, etc.
 	def SetVerbosity(this, fetch=True):
 
+		fetchFrom = ['args', 'config', 'environment']
+
 		if (fetch):
 			# Take the highest of -v vs --verbosity
-			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, ['args', 'config', 'environment']))
+			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, fetchFrom))
 			if (verbosity > this.verbosity):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
@@ -352,10 +360,12 @@ class Executor(DataContainer, Functor):
 			logging.getLogger().setLevel(logging.DEBUG)
 
 		if (fetch):
-			tabLogs, foundTabLogs = this.Fetch('tab_logs', False, ['args', 'config', 'environment'], start=False)
+			tabLogs, foundTabLogs = this.Fetch('tab_logs', False, fetchFrom, start=False)
 			tabLogs = this.EvaluateToType(tabLogs)
 			if (tabLogs or (this.verbosity >= 3 and not foundTabLogs)):
 				setattr(logging.getLogger(), 'tab_logs', True)
+				tabWidth = this.Fetch('logging_tab_width', 2, fetchFrom)
+				setattr(logging.getLogger(), 'tab_width', int(tabWidth))
 
 
 	# Do the argparse thing.
