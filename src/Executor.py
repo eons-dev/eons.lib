@@ -9,6 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 from zipfile import ZipFile
 from distutils.dir_util import mkpath
+from eot import EOT
 from .Constants import *
 from .Exceptions import *
 from .DataContainer import DataContainer
@@ -35,6 +36,11 @@ class Executor(DataContainer, Functor):
 		this.SetupLogging()
 
 		super().__init__(name)
+
+		this.optionalKWArgs['log_indentation'] = True
+		this.optionalKWArgs['log_tab_width'] = 2
+		this.optionalKWArgs['log_aggregate'] = True
+		this.optionalKWArgs['log_aggregate_endpoint'] = "https://eons.sh/log"
 
 		this.resolveErrors = True
 		this.errorRecursionDepth = 0
@@ -102,6 +108,9 @@ class Executor(DataContainer, Functor):
 			"yml",
 			"py",
 		]
+
+		# We can't Fetch from everywhere while we're getting things going. However, these should be safe,
+		this.fetchFromDuringSetup = ['args', 'config', 'environment']
 
 		this.Configure()
 		this.RegisterIncludedClasses()
@@ -180,14 +189,37 @@ class Executor(DataContainer, Functor):
 
 			def format(this, record):
 				log_fmt = this.formats.get(record.levelno)
-				if (hasattr(logging.getLogger(), 'tab_logs') and getattr(logging.getLogger(), 'tab_logs')):
-					tabWidth = 4
-					if (hasattr(logging.getLogger(), 'tab_width')):
-						tabWidth = getattr(logging.getLogger(), 'tab_width')
-					tabWidth = int(tabWidth) - 1
-					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * tabWidth}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
+
+				executor = None
+				if (hasattr(logging.getLogger(), 'setupBy')):
+					executor = getattr(logging.getLogger(), 'setupBy')
+
+					# The executor won't have populated its optionalKWArgs until after this method is effected.
+					# So we wait until the last optional arg is set to start using the executor.
+					if (not hasattr(executor, 'log_aggregate_endpoint')):
+						executor = None
+				
+				# Add indentation.
+				if (executor and executor.log_indentation):
+					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * executor.log_tab_width}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
 				else:
 					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
+
+				# Aggregate logs remotely.
+				if (executor and executor.log_aggregate and executor.repo.username is not None and executor.repo.password is not None):
+					aggregateEndpoint = executor.log_aggregate_endpoint
+					log = {
+						'level': record.levelname,
+						'message': record.getMessage(),
+						'source': executor.name,
+						'timestamp': EOT()
+					}
+					try:
+						requests.put(aggregateEndpoint, json=log, auth=(executor.repo.username, executor.repo.password))
+					except:
+						# We're not logging errors on our logging system logging errors.
+						pass
+
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
 				return formatter.format(record)
 
@@ -218,7 +250,7 @@ class Executor(DataContainer, Functor):
 	# Thus, setting up the log file handler has to occur later than the initial SetupLogging call.
 	# Calling this multiple times will add multiple log handlers.
 	def SetLogFile(this):
-		this.Set('log_file', this.Fetch('log_file', None, ['args', 'config', 'environment']))
+		this.Set('log_file', this.Fetch('log_file', None, this.fetchFromDuringSetup))
 		if (this.log_file is None):
 			return
 
@@ -336,12 +368,9 @@ class Executor(DataContainer, Functor):
 	# How do we get the verbosity level and what do we do with it?
 	# This method should set log levels, etc.
 	def SetVerbosity(this, fetch=True):
-
-		fetchFrom = ['args', 'config', 'environment']
-
 		if (fetch):
 			# Take the highest of -v vs --verbosity
-			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, fetchFrom))
+			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, this.fetchFromDuringSetup))
 			if (verbosity > this.verbosity):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
@@ -358,14 +387,6 @@ class Executor(DataContainer, Functor):
 		elif(this.verbosity >= 3):
 			logging.getLogger().handlers[0].setLevel(logging.DEBUG)
 			logging.getLogger().setLevel(logging.DEBUG)
-
-		if (fetch):
-			tabLogs, foundTabLogs = this.Fetch('tab_logs', False, fetchFrom, start=False)
-			tabLogs = this.EvaluateToType(tabLogs)
-			if (tabLogs or (this.verbosity >= 3 and not foundTabLogs)):
-				setattr(logging.getLogger(), 'tab_logs', True)
-				tabWidth = this.Fetch('logging_tab_width', 2, fetchFrom)
-				setattr(logging.getLogger(), 'tab_width', int(tabWidth))
 
 
 	# Do the argparse thing.
