@@ -5,6 +5,7 @@ import logging
 import requests
 import jsonpickle
 import yaml
+from requests_futures.sessions import FuturesSession
 from pathlib import Path
 from tqdm import tqdm
 from zipfile import ZipFile
@@ -152,6 +153,7 @@ class Executor(DataContainer, Functor):
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True
 
+		this.asyncSession = FuturesSession()
 
 	# Add a place to search for SelfRegistering classes.
 	# These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
@@ -201,23 +203,27 @@ class Executor(DataContainer, Functor):
 				
 				# Add indentation.
 				if (executor and executor.log_indentation):
-					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * executor.log_tab_width}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
+					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * (executor.log_tab_width - 1)}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
 				else:
 					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
 
 				# Aggregate logs remotely.
-				if (executor and executor.log_aggregate and executor.repo.username is not None and executor.repo.password is not None):
+				if (executor
+					and executor.log_aggregate 
+					and executor.repo.username is not None 
+					and executor.repo.password is not None
+					and record.module != 'connectionpool' # Prevent recursion.
+					):
 					aggregateEndpoint = executor.log_aggregate_endpoint
 					log = {
 						'level': record.levelname,
-						'message': record.getMessage(),
+						'message': record.getMessage(), # TODO: Sanitize to prevent 400 errors.
 						'source': executor.name,
-						'timestamp': EOT()
+						'timestamp': EOT.GetStardate()
 					}
 					try:
-						requests.put(aggregateEndpoint, json=log, auth=(executor.repo.username, executor.repo.password))
-					except:
-						# We're not logging errors on our logging system logging errors.
+						executor.asyncSession.put(aggregateEndpoint, json=log, auth=(executor.repo.username, executor.repo.password))
+					except Exception as e:
 						pass
 
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
@@ -242,7 +248,6 @@ class Executor(DataContainer, Functor):
 		if (not logging.getLogger().setupBy == this):
 			return
 		delattr(logging.getLogger(), 'setupBy')
-
 
 
 	# Logging to stderr is easy, since it will always happen.
@@ -384,9 +389,13 @@ class Executor(DataContainer, Functor):
 		elif (this.verbosity == 2):
 			logging.getLogger().handlers[0].setLevel(logging.INFO)
 			logging.getLogger().setLevel(logging.INFO)
-		elif(this.verbosity >= 3):
+		elif (this.verbosity >= 3):
 			logging.getLogger().handlers[0].setLevel(logging.DEBUG)
 			logging.getLogger().setLevel(logging.DEBUG)
+			logging.getLogger('urllib3').setLevel(logging.WARNING)
+		
+		if (this.verbosity >= 5):
+			logging.getLogger('urllib3').setLevel(logging.DEBUG)
 
 
 	# Do the argparse thing.
