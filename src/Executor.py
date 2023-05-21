@@ -41,7 +41,7 @@ class Executor(DataContainer, Functor):
 		this.optionalKWArgs['log_indentation'] = True
 		this.optionalKWArgs['log_tab_width'] = 2
 		this.optionalKWArgs['log_aggregate'] = True
-		this.optionalKWArgs['log_aggregate_endpoint'] = "https://eons.sh/log"
+		this.optionalKWArgs['log_aggregate_url'] = "https://eons.sh/log"
 
 		this.resolveErrors = True
 		this.errorRecursionDepth = 0
@@ -198,11 +198,14 @@ class Executor(DataContainer, Functor):
 
 					# The executor won't have populated its optionalKWArgs until after this method is effected.
 					# So we wait until the last optional arg is set to start using the executor.
-					if (not hasattr(executor, 'log_aggregate_endpoint')):
+					if (not hasattr(executor, 'log_aggregate_url')):
 						executor = None
 				
 				# Add indentation.
-				if (executor and executor.log_indentation):
+				if (executor
+					and executor.log_indentation
+					and executor.log_tab_width
+					):
 					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * (executor.log_tab_width - 1)}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
 				else:
 					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
@@ -214,7 +217,7 @@ class Executor(DataContainer, Functor):
 					and executor.repo.password is not None
 					and record.module != 'connectionpool' # Prevent recursion.
 					):
-					aggregateEndpoint = executor.log_aggregate_endpoint
+					aggregateEndpoint = executor.log_aggregate_url
 					log = {
 						'level': record.levelname,
 						'message': record.getMessage(), # TODO: Sanitize to prevent 400 errors.

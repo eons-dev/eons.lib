@@ -24,10 +24,14 @@ For example implementations, check out:
  * [emi](https://github.com/eons-dev/bin_emi)
 
 Arguments available to all Eons Executors:
-* `-v` or `--verbose` (count, i.e `-vv` = 2) or `--verbosity #`, where # is some number, or the `verbosity` environment or config value: will show more information and increase the logging level, e.g. print debug messages (3 for debug; 2 for info).
+* `-v` or `--verbose` (count, i.e `-vv` = 2) or `--verbosity #`, where # is some number, or the `verbosity` environment or config value: will show more information and increase the logging level, e.g. print debug messages; see [log-levels](#log-levels), below for more info.
 * `--config` or `-c` (string): the path to a json config file from which other values may be retrieved.
 * `--no-repo` or the `no_repo` environment or config value (bool, i.e. 'True', 'true', etc.): whether or not to enable reaching out to online servers for code (see Dynamic Functionality, below).
 * `--log-file` or the `log_file` environment or config value (string; supports formatting, e.g. '/var/log/eons/{this.name}.log'): optional value for logging to a file in addition to stderr.
+* `--log-indentation` (bool): whether or not tab out logs; see [indentation](#indentation), below.
+* `--log-tab-width` (int): how many spaces to use for indentation; see [indentation](#indentation), below.
+* `--log-aggregate` (bool): whether or not to send logs to a remote aggregation service; see [aggregation](#aggregation), below.
+* `--log-aggregate-url` (string): the url of the remote aggregation service; see [aggregation](#aggregation), below.
 
 ## Features
 
@@ -149,6 +153,39 @@ Eons supports several kinds of inheritance. Notably:
 | External          |has a|:heavy_check_mark:|:x:|:x:|:x:|
 
 You are not restricted to a single kind of inheritance. You can, and are encouraged, to use all forms of inheritance in your code!
+
+## Logging
+
+Eons attempts to provide a detailed, robust, and pleasant logging experience. We use the [logging](https://docs.python.org/3/library/logging.html) module, and shim in additional features through our log formatter.
+
+### Log Levels
+
+The log level may be set by the `verbosity` or `-v` flags.
+Children and other modules of Eons may employ their own logging levels. However, Eons provides the following levels by default:
+0. `CRITICAL`: only get notified if absolutely necessary.
+1. `WARNING`: get notified about potential problems.
+2. `INFO`: see what's generally going on.
+3. `DEBUG` + urllib3 WARNING: see what's really going on.
+4. Empty: reserved for modules.
+5. `DEBUG`: see everything.
+
+### Log Features
+
+#### Indentation
+
+To make logs easier to read, each Functor can be optionally tabbed out as it might be in source code, allowing you to readily see the scope where a log occurs. Each indentation begins with a `|` character and is followed by a number of spaces equal to the tab width minus one. For example, using a tab width of 2, a log line at the top level would be `| ...`, while a log at the second level would be `| | ...`.
+
+This feature is enabled by default. To disable it you can set `log_indentation` to `False`.
+
+To configure the size of the indentation, you can set `log_tab_width` to the number of spaces you want to use. For example a tab width of 1 would be just `|`, while a tab width of 4 would be `|   `.
+
+#### Aggregation
+
+For security information and event management (SIEM), Eons supports sending logs to a remote endpoint.
+
+This will only be done if a valid repo username and password are provided. If you provide a username and password, but don't want to send your logs to a remote server, you can set `log_aggregate` to `False`. 
+
+You may also set the `log_aggregate_url` to wherever you'd like to send your logs. By default, this is set to `https://eons.sh/log`.
 
 ## Performance
 
