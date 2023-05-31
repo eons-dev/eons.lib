@@ -245,7 +245,7 @@ class Functor(Datum):
 			if (varName == key):
 				varName = var
 				break
-		logging.debug(f"Setting ({type(value)}) {varName} = {value}")
+		logging.info(f"{varName} = {value} ({type(value)})")
 		setattr(this, varName, value)
 
 
@@ -556,7 +556,7 @@ class Functor(Datum):
 	# Make functor.
 	# Don't worry about this; logic is abstracted to Function
 	def __call__(this, *args, **kwargs) :
-		logging.debug(f"{this.name} ({args}, {kwargs}) {{")
+		logging.info(f"{this.name} ({args}, {kwargs}) {{")
 		FunctorTracker.Push(this)
 
 		ret = None
@@ -602,9 +602,9 @@ class Functor(Datum):
 		if (nextRet is not None):
 			ret = nextRet
 
-		logging.debug(f"return {ret}")
+		logging.info(f"return {ret}")
 		FunctorTracker.Pop(this)
-		logging.debug(f"}} ({this.name})")
+		logging.info(f"}} ({this.name})")
 
 		return ret
 
