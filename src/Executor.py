@@ -38,6 +38,7 @@ class Executor(DataContainer, Functor):
 
 		super().__init__(name)
 
+		this.optionalKWArgs['log_time_stardate'] = True
 		this.optionalKWArgs['log_indentation'] = True
 		this.optionalKWArgs['log_tab_width'] = 2
 		this.optionalKWArgs['log_aggregate'] = True
@@ -174,7 +175,7 @@ class Executor(DataContainer, Functor):
 
 		class CustomFormatter(logging.Formatter):
 
-			preFormat = util.console.GetColorCode('white', 'dark') + '%(asctime)s '
+			preFormat = util.console.GetColorCode('white', 'dark') + '__TIME__ '
 			levelName = '[%(levelname)8s] '
 			indentation = util.console.GetColorCode('blue', 'dark', styles=['faint']) + '__INDENTATION__' + util.console.GetColorCode('white', 'dark', styles=['none'])
 			message = '%(message)s '
@@ -200,34 +201,40 @@ class Executor(DataContainer, Functor):
 					# So we wait until the last optional arg is set to start using the executor.
 					if (not hasattr(executor, 'log_aggregate_url')):
 						executor = None
-				
-				# Add indentation.
-				if (executor
-					and executor.log_indentation
-					and executor.log_tab_width
-					):
-					log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * (executor.log_tab_width - 1)}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
+
+				if (executor):
+					# Add indentation.
+					if (executor.log_indentation and executor.log_tab_width):
+						log_fmt = log_fmt.replace('__INDENTATION__', f"|{' ' * (executor.log_tab_width - 1)}" * (FunctorTracker.GetCount() - 1)) # -1 because we're already in a Functor.
+					else:
+						log_fmt = log_fmt.replace('__INDENTATION__', ' ')
+
+					# Add time.
+					if (executor.log_time_stardate):
+						log_fmt = log_fmt.replace('__TIME__', f"{EOT.GetStardate()}")
+					else:
+						log_fmt = log_fmt.replace('__TIME__', "%(asctime)s")
+
+					# Aggregate logs remotely.
+					if (executor.log_aggregate 
+						and executor.repo.username is not None 
+						and executor.repo.password is not None
+						and record.module != 'connectionpool' # Prevent recursion.
+						):
+						aggregateEndpoint = executor.log_aggregate_url
+						log = {
+							'level': record.levelname,
+							'message': record.getMessage(), # TODO: Sanitize to prevent 400 errors.
+							'source': executor.name,
+							'timestamp': EOT.GetStardate()
+						}
+						try:
+							executor.asyncSession.put(aggregateEndpoint, json=log, auth=(executor.repo.username, executor.repo.password))
+						except Exception as e:
+							pass
 				else:
 					log_fmt = log_fmt.replace('__INDENTATION__', ' ')
-
-				# Aggregate logs remotely.
-				if (executor
-					and executor.log_aggregate 
-					and executor.repo.username is not None 
-					and executor.repo.password is not None
-					and record.module != 'connectionpool' # Prevent recursion.
-					):
-					aggregateEndpoint = executor.log_aggregate_url
-					log = {
-						'level': record.levelname,
-						'message': record.getMessage(), # TODO: Sanitize to prevent 400 errors.
-						'source': executor.name,
-						'timestamp': EOT.GetStardate()
-					}
-					try:
-						executor.asyncSession.put(aggregateEndpoint, json=log, auth=(executor.repo.username, executor.repo.password))
-					except Exception as e:
-						pass
+					log_fmt = log_fmt.replace('__TIME__', "%(asctime)s")
 
 				formatter = logging.Formatter(log_fmt, datefmt = '%H:%M:%S')
 				return formatter.format(record)

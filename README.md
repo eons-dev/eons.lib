@@ -28,6 +28,7 @@ Arguments available to all Eons Executors:
 * `--config` or `-c` (string): the path to a json config file from which other values may be retrieved.
 * `--no-repo` or the `no_repo` environment or config value (bool, i.e. 'True', 'true', etc.): whether or not to enable reaching out to online servers for code (see Dynamic Functionality, below).
 * `--log-file` or the `log_file` environment or config value (string; supports formatting, e.g. '/var/log/eons/{this.name}.log'): optional value for logging to a file in addition to stderr.
+* `--log-time-stardate` or the `log_time_stardate` environment or config value (bool): whether or not to use [Eons Official Time](https://github.com/eons-dev/eot.exe) stardate time in logs (default is `true`).
 * `--log-indentation` (bool): whether or not tab out logs; see [indentation](#indentation), below.
 * `--log-tab-width` (int): how many spaces to use for indentation; see [indentation](#indentation), below.
 * `--log-aggregate` (bool): whether or not to send logs to a remote aggregation service; see [aggregation](#aggregation), below.
