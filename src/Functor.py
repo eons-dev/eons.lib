@@ -122,6 +122,10 @@ class Functor(Datum):
 		# Those which come next (in order).
 		this.next = []
 
+		# Callback method
+		this.callbacks = util.DotDict()
+		this.callbacks.fetch = None
+
 
 	# Override this and do whatever!
 	# This is purposefully vague.
@@ -284,9 +288,14 @@ class Functor(Datum):
 			ret, found = this.fetchLocations[loc](varName, default, fetchFrom, attempted)
 			if (found):
 				logging.debug(f"...{this.name} got {varName} from {loc}.")
+				if (this.callbacks.fetch):
+					this.callbacks.fetch(varName = varName, location = loc, value = ret)
 				if (start):
 					return ret
 				return ret, True
+
+		if (this.callbacks.fetch):
+			this.callbacks.fetch(varName = varName, location = 'default', value = default)
 
 		if (start):
 			logging.debug(f"...{this.name} could not find {varName}; using default: {default}.")
