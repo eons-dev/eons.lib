@@ -102,7 +102,7 @@ class Functor(Datum):
 
 		# Numerical result indication the success or failure of *this.
 		# Set automatically.
-		# 0 is invalid; 1 is best; higher numbers are usually worse.
+		# 0 is success; 1 is no change; higher numbers are some kind of error.
 		this.result = 0
 
 		# Whether or not we should pass on exceptions when calls fail.
@@ -579,21 +579,21 @@ class Functor(Datum):
 			ret = getattr(this, this.callMethod)()
 
 			if (getattr(this, f"Did{this.callMethod}Succeed")()):
-					this.result = 1
+					this.result = 0
 					# logging.info(f"{this.name} successful!")
 					nextRet = this.CallNext()
 			elif (this.enableRollback):
 				logging.warning(f"{this.name} failed. Attempting Rollback...")
 				ret = getattr(this, this.rollbackMethod)()
 				if (getattr(this, f"Did{this.rollbackMethod}Succeed")()):
-					this.result = 2
+					this.result = 1
 					# logging.info(f"Rollback succeeded. All is well.")
 					nextRet = this.CallNext()
 				else:
-					this.result = 3
+					this.result = 2
 					logging.error(f"ROLLBACK FAILED! SYSTEM STATE UNKNOWN!!!")
 			else:
-				this.result = 4
+				this.result = 3
 				logging.error(f"{this.name} failed.")
 
 			getattr(this, f"After{this.callMethod}")()
@@ -605,7 +605,7 @@ class Functor(Datum):
 				logging.error(f"ERROR: {e}")
 				util.LogStack()
 
-		if (this.raiseExceptions and this.result > 2):
+		if (this.raiseExceptions and this.result > 1):
 			raise FunctorError(f"{this.name} failed with result {this.result}")
 
 		if (nextRet is not None):

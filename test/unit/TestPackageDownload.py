@@ -48,6 +48,6 @@ class TestPackageDownload(StandardTestFixture):
 		test = this.executor.GetRegistered("eonstestpackage", "package")
 		assert(test is not None)
 		test(executor=this.executor)
-		assert(test.result == 1)
+		assert(test.result == 0)
 
 		this.executor.repo.store = origRepoStore
