@@ -460,9 +460,10 @@ class Functor(Datum):
 			for rkw in this.requiredKWArgs:
 				if (rkw in argMap.keys()):
 					continue
-
-				fetched = this.FetchWithout(['this'], rkw)
-				if (fetched is not None):
+				
+				logging.debug(f"Fetching required value {rkw}...")
+				fetched, found = this.FetchWithout(['this'], rkw, start = False)
+				if (found):
 					this.Set(rkw, fetched)
 					continue
 
