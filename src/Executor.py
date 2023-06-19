@@ -94,6 +94,11 @@ class Executor(DataContainer, Functor):
 		# All repository configuration.
 		this.repo = util.DotDict()
 
+		# Placement helps to construct the correct load order of Functors as they are installed.
+		this.placement = util.DotDict()
+		this.placement.max = 255
+		this.placement.session = util.DotDict()
+		
 		# Defaults.
 		# You probably want to configure these in your own Executors.
 		this.defaultRepoDirectory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
@@ -117,6 +122,7 @@ class Executor(DataContainer, Functor):
 		this.Configure()
 		this.RegisterIncludedClasses()
 		this.AddArgs()
+		this.ResetPlacementSession()
 
 
 	# Destructors do not work reliably in python.
@@ -295,6 +301,47 @@ class Executor(DataContainer, Functor):
 		# this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
 
+	# End the current placement session (if any)
+	def ResetPlacementSession(this):
+		this.placement.session.active = False
+		this.placement.session.level = this.placement.max
+		this.placement.session.hierarchy = {}
+		this.placement.session.current = []
+
+	# Track to the current location in the placement hierarchy.
+	def GetPlacementSessionCurrentPosition(this):
+		if (not this.placement.session.active):
+			return None
+		ret = this.placement.session.hierarchy
+		for place in this.placement.session.hierarchy:
+			ret = ret[place]
+		return ret
+	
+	def BeginPlacing(this, toPlace):
+		if (not this.placement.session.active):
+			this.placement.session.active = True
+		hierarchy = this.GetPlacementSessionCurrentPosition()
+		hierarchy[toPlace] = {}
+		this.placement.session.current.append(toPlace)
+		this.placement.session.level -= 1
+
+	# Once the proper location of a Functor has been derived, remove it from the hierarchy.
+	# Additionally, if we're the last ones to play with the current session, reset it.
+	def ResolvePlacementOf(this, placed):
+		if (not this.placement.session.active):
+			return
+		try:
+			this.placement.session.current.remove(placed)
+		except:
+			pass # key errors when getting an existing Functor...
+		hierarchy = this.GetPlacementSessionCurrentPosition()
+		if (not len(this.placement.session.current)):
+			this.ResetPlacementSession()
+		elif (hierarchy and placed in hierarchy.keys()):
+			del hierarchy[placed]
+			this.placement.session.level += 1
+		
+
 	# Create any sub-class necessary for child-operations
 	# Does not RETURN anything.
 	def InitData(this):
@@ -448,6 +495,7 @@ class Executor(DataContainer, Functor):
 		logging.debug(f"Got extra arguments: {this.extraArgs}") # has to be after verbosity setting
 		logging.debug(f"Got config contents: {this.config}")
 		this.PopulateRepoDetails()
+		this.placement.max = this.Fetch('placement_max', 255, this.fetchFromDuringSetup)
 
 
 	# Functor required method
@@ -574,11 +622,13 @@ class Executor(DataContainer, Functor):
 		if (not os.path.exists(packageZipPath)):
 			raise PackageError(f"Failed to create {packageZipPath}")
 
-		logging.debug(f"Extracting {packageZipPath}")
 		openArchive = ZipFile(packageZipPath, 'r')
 		extractLoc = this.repo.store
 		if (createSubDirectory):
 			extractLoc = os.path.join(extractLoc, packageName)
+		elif (this.placement.session.active):
+			extractLoc = os.path.join(extractLoc, str(this.placement.session.level))
+		logging.debug(f"Extracting {packageZipPath} to {extractLoc}")
 		openArchive.extractall(f"{extractLoc}")
 		openArchive.close()
 		os.remove(packageZipPath)
@@ -598,11 +648,13 @@ class Executor(DataContainer, Functor):
 
 		try:
 			registered = SelfRegistering(registeredName)
+			this.ResolvePlacementOf(registeredName)
 		except Exception as e:
 			# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
 			packageName = registeredName
 			if (packageType):
 				packageName = f"{registeredName}.{packageType}"
+			this.BeginPlacing(registeredName)
 			logging.error(f"While trying to instantiate {packageName}, got: {e}")
 			raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 

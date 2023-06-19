@@ -39,8 +39,13 @@ def method(impl='Method', **kwargs):
 				setattr(method, key, value)
 
 			# Store the new method in the class
+			# There is a potential bug here: if the class derives from a class which already has the classMethods static member, this will add to the PARENT class's classMethods. Thus, 2 classes with different methods will share those methods via their shared parent.
 			if (not hasattr(cls, 'classMethods') or not isinstance(cls.classMethods, dict)):
 				cls.classMethods = {}
+			else:
+				# to account for the bug above, shadow classMethods out of the base class & into the derived.
+				setattr(cls, 'classMethods', getattr(cls, 'classMethods').copy())
+			
 			cls.classMethods[functionName] = method
 
 			# Self-destruct by replacing the decorated function.

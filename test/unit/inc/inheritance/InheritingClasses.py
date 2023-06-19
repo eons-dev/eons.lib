@@ -20,7 +20,7 @@ class inheriting_error_resolution(install_from_repo):
 # There's not much I could find on this behavior; from what I can tell it has no need to exists and is only done for convenience?
 # Here's a possibly relevant article: https://stackoverflow.com/questions/11974848/does-python-import-instantiate-a-mystery-class
 # When using 'import apie', calling executor.RegisterAllClassesInDirectory(registerPath) made executor.GetRegistered("test", "package") fail. I have no idea why. Pipeadapter seems to work though.
-import ehw
-class inheriting_external(ehw.Routine):
+import pipeadapter
+class inheriting_external(pipeadapter.Fitting):
 	def __init__(this, name="Inheriting External"):
 		super().__init__(name)

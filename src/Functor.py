@@ -389,7 +389,9 @@ class Functor(Datum):
 
 		for source, honorPropagate in this.methodSources.items():
 			if (not util.HasAttr(this, source)):
+				logging.debug(f"Could not find {source}; will not pull in its methods.")
 				continue
+			logging.debug(f"Populating methods from {source}.")
 			for method in util.GetAttr(this, source).values():
 				if (honorPropagate and not method.propagate):
 					continue
