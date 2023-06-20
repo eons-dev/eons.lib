@@ -248,7 +248,7 @@ class Executor(DataContainer, Functor):
 		# Skip setting up logging if it's already been done.
 		if (hasattr(logging.getLogger(), 'setupBy')):
 			return
-
+ 
 		logging.getLogger().handlers.clear()
 		stderrHandler = logging.StreamHandler()
 		stderrHandler.setLevel(logging.CRITICAL)
@@ -307,6 +307,7 @@ class Executor(DataContainer, Functor):
 		this.placement.session.level = this.placement.max
 		this.placement.session.hierarchy = {}
 		this.placement.session.current = []
+		logging.debug(f"Dependency placement session ended; level is now {this.placement.session.level}")
 
 	# Track to the current location in the placement hierarchy.
 	def GetPlacementSessionCurrentPosition(this):
@@ -324,6 +325,7 @@ class Executor(DataContainer, Functor):
 		hierarchy[toPlace] = {}
 		this.placement.session.current.append(toPlace)
 		this.placement.session.level -= 1
+		logging.debug(f"Placing {toPlace}; level is now {this.placement.session.level}")
 
 	# Once the proper location of a Functor has been derived, remove it from the hierarchy.
 	# Additionally, if we're the last ones to play with the current session, reset it.
@@ -332,14 +334,15 @@ class Executor(DataContainer, Functor):
 			return
 		try:
 			this.placement.session.current.remove(placed)
+			hierarchy = this.GetPlacementSessionCurrentPosition()
+			if (not len(this.placement.session.current)):
+				this.ResetPlacementSession()
+			elif (hierarchy and placed in hierarchy.keys()):
+				del hierarchy[placed]
+				this.placement.session.level += 1
+			logging.debug(f"Resolved placement of {placed}; level is now {this.placement.session.level}")
 		except:
 			pass # key errors when getting an existing Functor...
-		hierarchy = this.GetPlacementSessionCurrentPosition()
-		if (not len(this.placement.session.current)):
-			this.ResetPlacementSession()
-		elif (hierarchy and placed in hierarchy.keys()):
-			del hierarchy[placed]
-			this.placement.session.level += 1
 		
 
 	# Create any sub-class necessary for child-operations
@@ -648,13 +651,11 @@ class Executor(DataContainer, Functor):
 
 		try:
 			registered = SelfRegistering(registeredName)
-			this.ResolvePlacementOf(registeredName)
 		except Exception as e:
 			# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
 			packageName = registeredName
 			if (packageType):
 				packageName = f"{registeredName}.{packageType}"
-			this.BeginPlacing(registeredName)
 			logging.error(f"While trying to instantiate {packageName}, got: {e}")
 			raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 

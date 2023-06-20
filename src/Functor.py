@@ -550,6 +550,8 @@ class Functor(Datum):
 		
 		try:
 			this.PopulatePrecursor()
+			if (this.executor):
+				this.executor.BeginPlacing(this.name)
 			this.Initialize() # nop on call 2+
 			this.PopulateMethods() # Doesn't require Fetch; depends on precursor
 			this.ParseInitialArgs() # Usually where config is read in.
@@ -557,6 +559,8 @@ class Functor(Datum):
 			this.PopulateNext()
 			this.ValidateArgs()
 			this.ValidateMethods()
+			if (this.executor):
+				this.executor.ResolvePlacementOf(this.name)
 		except Exception as e:
 			if (this.raiseExceptions):
 				raise e
