@@ -307,7 +307,7 @@ class Executor(DataContainer, Functor):
 		this.placement.session.level = this.placement.max
 		this.placement.session.hierarchy = {}
 		this.placement.session.current = []
-		logging.debug(f"Dependency placement session ended; level is now {this.placement.session.level}")
+		# logging.debug(f"Dependency placement session ended; level is now {this.placement.session.level}")
 
 	# Track to the current location in the placement hierarchy.
 	def GetPlacementSessionCurrentPosition(this):
@@ -325,7 +325,7 @@ class Executor(DataContainer, Functor):
 		hierarchy[toPlace] = {}
 		this.placement.session.current.append(toPlace)
 		this.placement.session.level -= 1
-		logging.debug(f"Placing {toPlace}; level is now {this.placement.session.level}")
+		logging.debug(f"Prepared to place dependencies for {toPlace}; level is now {this.placement.session.level}")
 
 	# Once the proper location of a Functor has been derived, remove it from the hierarchy.
 	# Additionally, if we're the last ones to play with the current session, reset it.
@@ -340,7 +340,7 @@ class Executor(DataContainer, Functor):
 			elif (hierarchy and placed in hierarchy.keys()):
 				del hierarchy[placed]
 				this.placement.session.level += 1
-			logging.debug(f"Resolved placement of {placed}; level is now {this.placement.session.level}")
+			logging.debug(f"Finished placing dependencies for {placed}; level is now {this.placement.session.level}")
 		except:
 			pass # key errors when getting an existing Functor...
 		
