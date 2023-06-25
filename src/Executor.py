@@ -379,7 +379,7 @@ class Executor(DataContainer, Functor):
 	# Grok the configFile and populate this.config
 	def ParseConfigFile(this, configFile):
 		if (this.configType in ['py']):
-			this.RegisterAllClassesInDirectory(Path('./').joinpath('/'.join(this.parsedArgs.config.split['/'][:-1])))
+			this.RegisterAllClassesInDirectory(Path('./').joinpath('/'.join(this.parsedArgs.config.split('/')[:-1])))
 			functor = SelfRegistering(this.parsedArgs.config.split('/')[-1].split('.')[0])
 			this.config = functor(executor=this)
 		elif (this.configType in ['json', 'yml', 'yaml']):
