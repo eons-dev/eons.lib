@@ -627,7 +627,7 @@ class Functor(Datum):
 		if (nextRet is not None):
 			ret = nextRet
 
-		if (this.enableAutoReturn and ret is None):
+		if (this.enableAutoReturn and len(this.result.data) and ret is None):
 			ret = this.result.data
 
 		logging.info(f"return {ret}")

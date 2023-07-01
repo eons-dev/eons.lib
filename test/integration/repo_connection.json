@@ -42,8 +42,7 @@
             "check" : "output",
             "command" : "testexecutor --verbosity 0",
             "expected" : [
-              "Hello world!",
-              ""
+              "Hello world!"
             ],
             "comparator" : "eq"
           }
