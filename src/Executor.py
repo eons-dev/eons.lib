@@ -376,7 +376,7 @@ class Executor(DataContainer, Functor):
 	def RegisterAllClasses(this):
 		for d in this.registerDirectories:
 			this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
-		this.RegisterAllClassesInDirectory(this.repo.store)
+		this.RegisterAllClassesInDirectory(this.repo.registry)
 
 
 	# Grok the configFile and populate this.config
@@ -425,6 +425,7 @@ class Executor(DataContainer, Functor):
 		details = {
 			"online": not this.Fetch('no_repo', False, ['this', 'args', 'config']),
 			"store": this.defaultRepoDirectory,
+			"registry": str(Path(this.defaultRepoDirectory).joinpath('registry').resolve()),
 			"url": "https://api.infrastructure.tech/v1/package",
 			"username": None,
 			"password": None
@@ -580,9 +581,11 @@ class Executor(DataContainer, Functor):
 
 		logging.debug(f"Trying to download {packageName} from repository ({this.repo.url})")
 
-		if (not os.path.exists(this.repo.store)):
-			logging.debug(f"Creating directory {this.repo.store}")
-			mkpath(this.repo.store)
+		for path in ['store', 'registry']:
+			if (Path(this.repo[path]).is_dir()):
+				continue
+			logging.debug(f"Creating directory {this.repo[path]}")
+			mkpath(this.repo[path])
 
 		packageZipPath = os.path.join(this.repo.store, f"{packageName}.zip")
 
@@ -630,6 +633,8 @@ class Executor(DataContainer, Functor):
 
 		openArchive = ZipFile(packageZipPath, 'r')
 		extractLoc = this.repo.store
+		if (registerClasses):
+			extractLoc = this.repo.registry
 		if (createSubDirectory):
 			extractLoc = os.path.join(extractLoc, packageName)
 		elif (this.placement.session.active):
@@ -640,7 +645,7 @@ class Executor(DataContainer, Functor):
 		os.remove(packageZipPath)
 
 		if (registerClasses):
-			this.RegisterAllClassesInDirectory(this.repo.store)
+			this.RegisterAllClassesInDirectory(this.repo.registry)
 
 		return True
 
