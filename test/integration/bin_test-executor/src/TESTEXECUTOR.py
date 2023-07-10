@@ -21,6 +21,7 @@ class TESTEXECUTOR(e.Executor):
 		super().Function()
 
 		hello = this.GetRegistered("hello_world", "functor")
+		hello.enableAutoReturn = False
 		hello(executor=this)
 
 	def PostCall(this):

@@ -44,6 +44,9 @@ class Executor(DataContainer, Functor):
 		this.optionalKWArgs['log_aggregate'] = True
 		this.optionalKWArgs['log_aggregate_url'] = "https://eons.sh/log"
 
+		# Executors should have control over their returns, if they have any.
+		this.enableAutoReturn = False
+
 		this.resolveErrors = True
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}

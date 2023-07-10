@@ -100,10 +100,17 @@ class Functor(Datum):
 		# Rolling back can be disabled by setting this to False.
 		this.enableRollback = True
 
-		# Numerical result indication the success or failure of *this.
-		# Set automatically.
+		# Automatically return the result.data object if the function returns None
+		this.enableAutoReturn = True
+
+		# this.result encompasses the return value of *this.
+		# The code is a numerical result indication the success or failure of *this and is set automatically.
 		# 0 is success; 1 is no change; higher numbers are some kind of error.
-		this.result = 0
+		# this.result.data should be set manuallly.
+		# It is highly recommended that you check result.data in DidFunctionSucceed().
+		this.result = util.DotDict()
+		this.result.code = 0
+		this.result.data = util.DotDict()
 
 		# Whether or not we should pass on exceptions when calls fail.
 		this.raiseExceptions = True
@@ -547,6 +554,8 @@ class Functor(Datum):
 
 		this.args = args
 		this.kwargs = kwargs
+		this.result.code = 0
+		this.result.data = util.DotDict()
 		
 		try:
 			this.PopulatePrecursor()
@@ -586,21 +595,21 @@ class Functor(Datum):
 			ret = getattr(this, this.callMethod)()
 
 			if (getattr(this, f"Did{this.callMethod}Succeed")()):
-					this.result = 0
+					this.result.code = 0
 					# logging.info(f"{this.name} successful!")
 					nextRet = this.CallNext()
 			elif (this.enableRollback):
 				logging.warning(f"{this.name} failed. Attempting Rollback...")
 				ret = getattr(this, this.rollbackMethod)()
 				if (getattr(this, f"Did{this.rollbackMethod}Succeed")()):
-					this.result = 1
+					this.result.code = 1
 					# logging.info(f"Rollback succeeded. All is well.")
 					nextRet = this.CallNext()
 				else:
-					this.result = 2
+					this.result.code = 2
 					logging.error(f"ROLLBACK FAILED! SYSTEM STATE UNKNOWN!!!")
 			else:
-				this.result = 3
+				this.result.code = 3
 				logging.error(f"{this.name} failed.")
 
 			getattr(this, f"After{this.callMethod}")()
@@ -612,11 +621,14 @@ class Functor(Datum):
 				logging.error(f"ERROR: {e}")
 				util.LogStack()
 
-		if (this.raiseExceptions and this.result > 1):
-			raise FunctorError(f"{this.name} failed with result {this.result}")
+		if (this.raiseExceptions and this.result.code > 1):
+			raise FunctorError(f"{this.name} failed with result {this.result.code}: {this.result}")
 
 		if (nextRet is not None):
 			ret = nextRet
+
+		if (this.enableAutoReturn and len(this.result.data) and ret is None):
+			ret = this.result.data
 
 		logging.info(f"return {ret}")
 		FunctorTracker.Pop(this)
