@@ -9,6 +9,23 @@ from .Utils import util
 def METHOD_PENDING_POPULATION(obj, *args, **kwargs):
 	raise MethodPendingPopulation("METHOD PENDING POPULATION")
 
+# Store the new method in the class
+def PrepareClassMethod(cls, name, methodToAdd):
+	# There is a potential bug here: if the class derives from a class which already has the classMethods static member, this will add to the PARENT class's classMethods. Thus, 2 classes with different methods will share those methods via their shared parent.
+	if (not hasattr(cls, 'classMethods') or not isinstance(cls.classMethods, dict)):
+		cls.classMethods = {}
+	else:
+		# to account for the bug above, shadow classMethods out of the base class & into the derived.
+		setattr(cls, 'classMethods', getattr(cls, 'classMethods').copy())
+
+	cls.classMethods[name] = methodToAdd
+
+	# Self-destruct by replacing the decorated function.
+	# We rely on Functor.PopulateMethods to re-establish the method as callable.
+	# It seems like this just outright removes the methods. There may be an issue with using __get__ this way.
+	# Regardless deleting the method is okay as long as we add it back before anyone notices.
+	setattr(cls, name, METHOD_PENDING_POPULATION.__get__(cls))
+
 # Use the @method() decorator to turn any class function into an eons Method Functor.
 # Methods are Functors which can be implicitly transferred between classes (see Functor.PopulateMethods)
 # Using Methods also gives us full control over the execution of your code; meaning, we can change how Python interprets what you wrote!
@@ -33,26 +50,12 @@ def method(impl='Method', **kwargs):
 
 			# Create and configure a new Method
 
-			method = SelfRegistering(impl)
-			method.Constructor(this.function, cls)
+			methodToAdd = SelfRegistering(impl)
+			methodToAdd.Constructor(this.function, cls)
 			for key, value in kwargs.items():
-				setattr(method, key, value)
+				setattr(methodToAdd, key, value)
 
-			# Store the new method in the class
-			# There is a potential bug here: if the class derives from a class which already has the classMethods static member, this will add to the PARENT class's classMethods. Thus, 2 classes with different methods will share those methods via their shared parent.
-			if (not hasattr(cls, 'classMethods') or not isinstance(cls.classMethods, dict)):
-				cls.classMethods = {}
-			else:
-				# to account for the bug above, shadow classMethods out of the base class & into the derived.
-				setattr(cls, 'classMethods', getattr(cls, 'classMethods').copy())
-			
-			cls.classMethods[functionName] = method
-
-			# Self-destruct by replacing the decorated function.
-			# We rely on Functor.PopulateMethods to re-establish the method as callable.
-			# It seems like this just outright removes the methods. There may be an issue with using __get__ this way.
-			# Regardless deleting the method is okay as long as we add it back before anyone notices.
-			setattr(cls, functionName, METHOD_PENDING_POPULATION.__get__(cls))
+			PrepareClassMethod(cls, functionName, methodToAdd)
 
 	return MethodDecorator
 
@@ -91,7 +94,9 @@ class Method(Functor):
 		this.object = None
 
 		this.original = util.DotDict()
-		this.original.cls = None
+		this.original.cls = util.DotDict()
+		this.original.cls.object = None
+		this.original.cls.name = 'None'
 		this.original.function = None
 
 
@@ -151,7 +156,9 @@ def {wrappedFunctionName}(this):
 	# The class and all other properties are irrelevant. However, they are provided and intended for debugging only.
 	def Constructor(this, function, cls):
 		this.name = function.__name__
-		this.original.cls = cls
+		this.original.cls.object = cls
+		if (this.original.cls.object):
+			this.original.cls.name = this.original.cls.object.__name__
 		this.original.function = function
 
 		this.PopulateFrom(function)
@@ -163,7 +170,7 @@ def {wrappedFunctionName}(this):
 	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.
 	def PopulatePrecursor(this):
 		if (not this.object):
-			raise MissingArgumentError(f"Call {this.name} from a class instance: {this.original.cls.__name__}.{this.name}(...). Maybe Functor.PopulateMethods() hasn't been called yet?")
+			raise MissingArgumentError(f"Call {this.name} from a class instance: {this.original.cls.name}.{this.name}(...). Maybe Functor.PopulateMethods() hasn't been called yet?")
 
 		this.executor = this.object.executor
 

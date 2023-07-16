@@ -1,14 +1,55 @@
 # Eons Python Framework
 
-The Eons Python Framework provides a Python counterpart to the [Develop Biology](https://develop.bio) project. This means `eons` helps you blur the lines between what it means to be, have, and do. Gone are the days of classes meaning "to be", members meaning "to have", and functions meaning "to do". With Eons and Biology, they are all one and the same. 
+The Eons Python Framework provides a user-friendly Python extension to the [Develop Biology](https://develop.bio) project. This means `eons` helps you blur the lines between what it means to be, have, and do. Gone are the days of classes meaning "to be", members meaning "to have", and functions meaning "to do". With Eons and Biology, they are all one and the same. 
 
 Design in short: Self-registering, sequential functors with implicit and automatic inheritance, downloaded just-in-time for use with arbitrary data structures.
 
-## Eons vs Biology
+## Kind
 
-The Eons library is designed for plug-and-play development, unlike Biology. This means it's faster to get up and running but has fewer features, is less optimized, and will likely be slower to run. Additionally, Eons is only single threaded (due to Python limitations), while Biology is multi-threaded by default. Due to the single thread limitation of this framework, the full neural-processing of Biology is reduced to only a single sequence of operations at a time. However, by allowing those operations to be arbitrarily complex, build off each other, and be loaded from the cloud at runtime, we aim to provide the same level of functionality, if not better, than what Biology provides by default. Both systems work toward a full implementation of the [Eons Language of Development](https://github.com/develop-biology/language.development).
+Eons provides an easy plug-and-play style of development by melding the myriad Python packages we all love with our own custom syntax. We aim to provide you with something that is familiar when you want it to be, and powerful when you need it to be.
 
-Once Develop Biology is stable and the Native Biology Syntax is fully developed, the Eons Python Framework and all downstream implementations will be merged into a single, flexible, and optimized solution. However, the builtin reflection features of Biology should make it such that a successful integration means no changes to downstream code. Python can stay Python, or become any other language you want. Stay tuned!
+The most condensed form of our syntax is as follows:
+
+```python
+@eons.kind(parent/base, classes)
+def ClassName(
+    member,
+    variables,
+    which = "are injected via Fetch"
+):
+    # Your code goes here.
+    this.isHow = "you reference the object / instance"
+```
+
+Here's a more complete example:
+```python
+import eons
+
+@eons.kind(eons.StandardFunctor)
+def MyFunctor(
+	external_method = eons.inject('SomeFarAwayFunctor'),
+	constructor = f"""
+# Until Execution Blocks can be created in Parameter Blocks, formatted, multiline strings are the only way to handle arbitrary logic.
+
+this.classVariable = "Whatever you want!"
+""",
+):
+	this.result.data.myResult = external_method(this.classVariable)
+
+```
+
+This language style derives from the [Eons Language of Development](https://github.com/develop-biology/language.development). The only real features missing, besides some nicer character choices (e.g. use of `{}` for Execution Blocks) are Space Autofill, and the ability to define functions, classes, and Functors in Parameter Blocks (i.e. `()`). So, for now, you're restricted to just lambdas or breaking your larger logic out into a separate Functor. 
+
+The main differences between the Kind syntax and the Eons Language of Development are:
+* The `@eons.kind` decorator is used to declare a Type Block.
+* `this` is used instead of `$` (or `self` in Python).
+* Spatial Separation is big endian, rather than how domains are named (i.e. LSB..TLD).
+* Sequences are built by `eons.Flow()`s (still under development).
+* Python STILL does not have multiline comments >:(
+* Python has both dictionaries and lists, vs just Containers in ELD
+* `def` is required to start a Parameter Block & `:` is required to start an Execution Block, both of which must always happen in that order (and be preceded by a Type Block).
+* Convenient type casting is not fully implemented in Kind.
+* Access control is not yet implemented in Kind.
 
 ## Installation
 `pip install eons`
@@ -47,7 +88,7 @@ Eons supports 5 major features:
 
 Eons provides a simple means of retrieving variables from a wide array of places. When you `Fetch()` a variable, we look through:
 1. The system environment (e.g. `export some_key="some value"`)
-2. The json configuration file supplied with `--config` (or specified by `this.defualtConfigFile` per `Configure()`)
+2. The json configuration file supplied with `--config` (or specified by `this.defaultConfigFile` per `Configure()`)
 3. Arguments supplied at the command line (e.g. specifying `--some-key "some value"` makes `Fetch(some_key)` return `"some value"`)
 4. Member variables of the Executor (e.g. `this.some_key = "some value"`)
 
@@ -117,9 +158,24 @@ Here, we use a Functor called "MyExternalFunctor" to compose MyClass. The actual
 
 Using this technique, we can reuse Functors within other Functors, and none of the code has to be present on the local system at runtime but can be supplied as needed.
 
+#### Kind
+
+When using Kind syntax, use `eons.inject` instead of `@method` (Python prohibits the use of decorators in Parameter Blocks).
+
+NOTE: Kind allows you to change the name of the External Method, while the decorator does not.
+
+For example:
+```python
+@eons.kind(eons.Functor)
+def MyClass(
+    WeCanChangeThisNameNow = eons.inject("MyExternalFunctor")
+):
+...
+```
+
 #### Requirements & Notes
 
-1. Circular dependencies are not supported. Because of this, any Functors used to compose more complex classes should be stored in sub-folders in the package or repo_store. Sub-folders will be registered before parent directories. See [Self Registration](#self-registration) for more info.
+1. Circular dependencies are not supported. Because of this, any Functors used to compose more complex classes should be stored in sub-folders in the package or repo_store. Sub-folders will be registered before parent directories. See [Self Registration](#self-registration) for more info. **NOTE: This is now done for you automatically by the Placement system.**
 
 2. When calling an External Method, the members of the Functor are not accessible through the function (e.g. `MyClass.MyExternalFunctor.DidFunctionSucceed()` is not currently supported). To accomplish such behavior, you must currently access the External Method through the `methods` member. For example, `MyClass.methods['MyExternalFunctor'].DidFunctionSucceed()`.
 
@@ -227,7 +283,7 @@ Normally, one has to `import` the files they create into their "main" file in or
 
 Dynamic error resolutions enables this self registration system to work with inheritance as well. This means that, within downloaded functor, you can `from some_module_to_download import my_desired_class` to download another.
 
-NOTE: `SelfRegistering.RegisterAllClassesInDirectory(...)` is depth-first, meaning any sub-folders in the given folder will be loaded before the parent directory. This helps to organzie inheritance dependencies, but can be disabled with `recurse=False`.
+NOTE: `SelfRegistering.RegisterAllClassesInDirectory(...)` is depth-first, meaning any sub-folders in the given folder will be loaded before the parent directory. This helps to organize inheritance dependencies, but can be disabled with `recurse=False`.
 
 #### Example
 

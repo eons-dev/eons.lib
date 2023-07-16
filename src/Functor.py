@@ -16,9 +16,12 @@ from .FunctorTracker import FunctorTracker
 # This class derives from Datum, primarily, to give it a name but also to allow it to be stored and manipulated, should you so desire.
 # Functors will automatically Fetch any ...Args specified.
 # You may additionally specify required methods (per @method()) and required programs (i.e. external binaries).
-# When Executing a Functor, you can say 'next=[...]', in which case multiple Functors will be Executed in sequence. This is necessary for the method propagation machinary to work.
+# When Executing a Functor, you can say 'next=[...]', in which case multiple Functors will be Executed in sequence. This is necessary for the method propagation machinery to work.
 # When invoking a sequence of Functors, only the result of the last Functor to be Executed or the first Functor to fail will be returned.
 class Functor(Datum):
+
+	# Which function should be overridden when creating a @kind from *this.
+	primaryFunctionName = 'Function'
 
 	def __init__(this, name=INVALID_NAME()):
 		super().__init__(name)
@@ -106,7 +109,7 @@ class Functor(Datum):
 		# this.result encompasses the return value of *this.
 		# The code is a numerical result indication the success or failure of *this and is set automatically.
 		# 0 is success; 1 is no change; higher numbers are some kind of error.
-		# this.result.data should be set manuallly.
+		# this.result.data should be set manually.
 		# It is highly recommended that you check result.data in DidFunctionSucceed().
 		this.result = util.DotDict()
 		this.result.code = 0
@@ -117,8 +120,9 @@ class Functor(Datum):
 
 		# Ease of use members
 		# These can be calculated in Function and Rollback, respectively.
-		this.functionSucceeded = False
-		this.rollbackSucceeded = False
+		# Assume success to reduce the overhead of creating small Functors.
+		this.functionSucceeded = True
+		this.rollbackSucceeded = True
 
 		# That which came before.
 		this.precursor = None

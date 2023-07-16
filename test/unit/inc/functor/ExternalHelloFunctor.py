@@ -13,4 +13,4 @@ class ExternalHelloFunctor(eons.StandardFunctor):
 	# Override this and do whatever!
 	# This is purposefully vague.
 	def Function(this):
-		return this.HelloFunctor("all the exeternal possibilities!")
+		return this.HelloFunctor("all the external possibilities!")
