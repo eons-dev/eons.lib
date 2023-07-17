@@ -37,7 +37,10 @@ class External(eons.Method):
 		kwargs = this.kwargs
 		kwargs.update({
 			'executor': this.executor,
-			'precursor': this
+			'precursor': this,
 		})
+		
+		this.functor.caller = this.caller
+		
 		return this.functor(*this.args, **kwargs)
 	

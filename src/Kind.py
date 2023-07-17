@@ -85,6 +85,7 @@ def kind(
 		args = inspect.signature(function).parameters
 		source = inspect.getsource(function)
 		source = source[source.find(':')+1:].strip()
+		source = source.replace('caller', 'this.caller')
 
 		ctor = util.DotDict()
 		ctor.source = []

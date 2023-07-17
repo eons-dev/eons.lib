@@ -91,7 +91,7 @@ class Method(Functor):
 
 		# The instance of the class to which *this belongs.
 		# i.e. the object that called *this, aka 'owner', 'caller', etc.
-		this.object = None
+		this.caller = None
 
 		this.original = util.DotDict()
 		this.original.cls = util.DotDict()
@@ -114,16 +114,15 @@ def {wrappedFunctionName}(this):
 		exec(f'this.Function = {wrappedFunctionName}.__get__(this, this.__class__)')
 
 
-
 	# Parse arguments and update the source code
-	# TODO: Implement full python parser to avoid bad string replacement (e.g. "def func(self):... self.selfImprovement" => "... this.object.this.object.Improvement").
+	# TODO: Implement full python parser to avoid bad string replacement (e.g. "def func(self):... self.selfImprovement" => "... this.caller.this.caller.Improvement").
 	def PopulateFrom(this, function):
 		this.source = ':'.join(inspect.getsource(function).split(':')[1:]) #Remove the first function definition
 
 		args = inspect.signature(function, follow_wrapped=False).parameters
 		thisSymbol = next(iter(args))
 		#del args[thisSymbol] # ??? 'mappingproxy' object does not support item deletion
-		this.source = this.source.replace(thisSymbol, 'this.object')
+		this.source = this.source.replace(thisSymbol, 'this.caller')
 
 		first = True
 		for arg in args.values(): #args.values[1:] also doesn't work.
@@ -169,10 +168,10 @@ def {wrappedFunctionName}(this):
 
 	# Grab any known and necessary args from this.kwargs before any Fetch calls are made.
 	def PopulatePrecursor(this):
-		if (not this.object):
+		if (not this.caller):
 			raise MissingArgumentError(f"Call {this.name} from a class instance: {this.original.cls.name}.{this.name}(...). Maybe Functor.PopulateMethods() hasn't been called yet?")
 
-		this.executor = this.object.executor
+		this.executor = this.caller.executor
 
 		if ('precursor' in this.kwargs):
 			this.precursor = this.kwargs.pop('precursor')

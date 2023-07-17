@@ -6,6 +6,8 @@ Design in short: Self-registering, sequential functors with implicit and automat
 
 ## Kind
 
+(totally unrelated to the [Kind Proof Language](https://github.com/HigherOrderCO/Kind); we just wanted a short synonym to "type" that didn't collide with Python's reserved keywords)
+
 Eons provides an easy plug-and-play style of development by melding the myriad Python packages we all love with our own custom syntax. We aim to provide you with something that is familiar when you want it to be, and powerful when you need it to be.
 
 The most condensed form of our syntax is as follows:
@@ -38,11 +40,12 @@ this.classVariable = "Whatever you want!"
 
 ```
 
-This language style derives from the [Eons Language of Development](https://github.com/develop-biology/language.development). The only real features missing, besides some nicer character choices (e.g. use of `{}` for Execution Blocks) are Space Autofill, and the ability to define functions, classes, and Functors in Parameter Blocks (i.e. `()`). So, for now, you're restricted to just lambdas or breaking your larger logic out into a separate Functor. 
+This language style derives from the [Eons Language of Development](https://github.com/develop-biology/language.development) (ELD). The only real features missing, besides some nicer character choices (e.g. use of `{}` for Execution Blocks) are Space Autofill, and the ability to define functions, classes, and Functors in Parameter Blocks (i.e. `()`). So, for now, you're restricted to just lambdas or breaking your larger logic out into a separate Functor. 
 
 The main differences between the Kind syntax and the Eons Language of Development are:
 * The `@eons.kind` decorator is used to declare a Type Block.
 * `this` is used instead of `$` (or `self` in Python).
+* `caller` is used instead of `$$`.
 * Spatial Separation is big endian, rather than how domains are named (i.e. LSB..TLD).
 * Sequences are built by `eons.Flow()`s (still under development).
 * Python STILL does not have multiline comments >:(
@@ -50,6 +53,44 @@ The main differences between the Kind syntax and the Eons Language of Developmen
 * `def` is required to start a Parameter Block & `:` is required to start an Execution Block, both of which must always happen in that order (and be preceded by a Type Block).
 * Convenient type casting is not fully implemented in Kind.
 * Access control is not yet implemented in Kind.
+
+### Caller
+
+When composing Functors, the `this` keyword is often ambiguous. Between functions of a class, `this` always refers to the class itself. However, when each function is also a class, does `this` mean the Functor or the class to which it belongs?
+
+To answer this question, ELD introduces the keyword `$$`. In Kind, we simply call this `caller`.
+
+So, you can use `caller.someMember` to share access across Functors composed by the same class, and `this.someMember` to access the Functor's own members.
+
+### Access Control
+There is no true access control in Python. So, implementing it via Biology has been slow going. However, for now, you can use something akin to ELD's `public(...)` Functor to make defining method injection easier.
+
+Instead of saying:
+```python
+@eons.kind(eons.StandardFunctor)
+def MyFunctor(
+    Method1 = eons.inject('Method1'),
+    method2 = eons.inject('SomeOtherFunctor'),
+    MeThOd3 = eons.inject('METHOD3'),
+): 
+    pass
+```
+
+you can say:
+```python
+@eons.kind(eons.StandardFunctor)
+def MyFunctor(
+    doesNotMatter = eons.public_methods(
+        'Method1',
+        method3 = 'SomeOtherFunctor',
+        MeThOd3 = 'METHOD3',
+    ),
+): 
+    pass
+```
+Unfortunately, you have to assign the result of `eons.public_methods` to a key word arg. However, the arg name is never used. We recommend using `public` or something trivial.
+
+Eventually, a generic `eons.public(...)` method should exist such that you can specify variable in addition to methods, but that is not yet implemented.
 
 ## Installation
 `pip install eons`

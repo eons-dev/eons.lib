@@ -427,7 +427,7 @@ class Functor(Datum):
 
 		for method in this.methods.values():
 			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
-			method.object = this
+			method.caller = this
 
 			# Python < 3.11
 			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
