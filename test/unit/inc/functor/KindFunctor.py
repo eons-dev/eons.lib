@@ -2,7 +2,7 @@ import eons
 
 @eons.kind(eons.StandardFunctor)
 def KindFunctor(
-	hello = eons.inject('HelloFunctor'),
+	methods = eons.public_methods(hello = 'HelloFunctor'),
 	constructor = f"""
 this.sayHelloTo = "simplicity!"
 """,
