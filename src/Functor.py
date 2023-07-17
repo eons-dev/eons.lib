@@ -64,6 +64,7 @@ class Functor(Datum):
 			'globals',
 			'config', #local (if applicable) or per Executor; should be before 'executor' if using a local config.
 			'precursor',
+			'caller',
 			'executor',
 			'environment',
 		]
@@ -128,6 +129,10 @@ class Functor(Datum):
 		this.precursor = None
 
 		# The progenitor of *this.
+		# i.e. the object that called *this, aka 'owner', 'caller', etc.
+		this.caller = None
+
+		# The overarching program manager.
 		this.executor = None
 
 		# Those which come next (in order).
@@ -672,13 +677,6 @@ class Functor(Datum):
 			return util.GetAttr(this, varName), True
 		return default, False
 
-
-	def fetch_location_precursor(this, varName, default, fetchFrom, attempted):
-		if (this.precursor is None):
-			return default, False
-		return this.precursor.FetchWithAndWithout(['this'], ['environment'], varName, default, fetchFrom, False, attempted)
-
-
 	def fetch_location_args(this, varName, default, fetchFrom, attempted):
 
 		# this.args can't be searched.
@@ -687,6 +685,19 @@ class Functor(Datum):
 			if (key == varName):
 				return val, True
 		return default, False
+
+
+	def fetch_location_precursor(this, varName, default, fetchFrom, attempted):
+		if (this.precursor is None):
+			return default, False
+		return this.precursor.FetchWithAndWithout(['this'], ['environment'], varName, default, fetchFrom, False, attempted)
+	
+	
+	def fetch_location_caller(this, varName, default, fetchFrom, attempted):
+		if (not this.caller):
+			return default, False
+		
+		return this.caller.FetchWithout(['environment'], varName, default, fetchFrom, False, attempted)
 
 
 	# Call the Executor's Fetch method.

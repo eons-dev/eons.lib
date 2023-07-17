@@ -89,10 +89,6 @@ class Method(Functor):
 		# The source code of the function we're implementing.
 		this.source = ""
 
-		# The instance of the class to which *this belongs.
-		# i.e. the object that called *this, aka 'owner', 'caller', etc.
-		this.caller = None
-
 		this.original = util.DotDict()
 		this.original.cls = util.DotDict()
 		this.original.cls.object = None
