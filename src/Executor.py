@@ -52,9 +52,9 @@ class Executor(DataContainer, Functor):
 		this.errorResolutionStack = {}
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
 			'find_by_fetch',
+			'import_module',
 			'install_from_repo_with_default_package_type',
 			'install_from_repo',
-			'import_module',
 			'install_with_pip'
 		]
 
@@ -678,7 +678,7 @@ class Executor(DataContainer, Functor):
 	# Non-static override of the SelfRegistering method.
 	# Needed for errorObject resolution.
 	@recoverable
-	def RegisterAllClassesInDirectory(this, directory):
+	def RegisterAllClassesInDirectory(this, directory, recurse=True):
 		path = Path(directory)
 		if (not path.exists()):
 			logging.debug(f"Making path for SelfRegitering classes: {str(path)}")
@@ -687,7 +687,7 @@ class Executor(DataContainer, Functor):
 		if (directory not in this.syspath):
 			this.syspath.append(directory)
 
-		SelfRegistering.RegisterAllClassesInDirectory(directory)
+		SelfRegistering.RegisterAllClassesInDirectory(directory, recurse=recurse)
 
 
 	# Utility method. may not be useful.

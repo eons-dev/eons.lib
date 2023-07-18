@@ -534,7 +534,8 @@ class Functor(Datum):
 	# Call the next Functor.
 	# RETURN the result of the next Functor or None.
 	def CallNext(this):
-		if (not this.next):
+		# TODO: Why would next ever not be a list This should be the same as the FIXME below.s
+		if (not this.next or not isinstance(this.next, list) or len(this.next) == 0):
 			return None
 		
 		# Something odd happens here; we've been getting:

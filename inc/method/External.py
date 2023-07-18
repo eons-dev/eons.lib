@@ -33,14 +33,28 @@ class External(eons.Method):
 	def PopulateFrom(this, function):
 		this.functorName = function.__name__
 
-	def Function(this):
+	def GetKWArgsForMethod(this):
 		kwargs = this.kwargs
 		kwargs.update({
 			'executor': this.executor,
 			'precursor': this,
 		})
-		
 		this.functor.caller = this.caller
-		
-		return this.functor(*this.args, **kwargs)
+		return kwargs
+
+	def Function(this):
+		ret = this.functor(*this.args, **this.GetKWArgsForMethod())
+		this.result = this.functor.result
+		return ret
+
+	def Rollback(this):
+		this.functor.WarmUp(*this.args, **this.GetKWArgsForMethod())
+		ret = this.functor.Rollback()
+		this.result = this.functor.result
+		return ret
 	
+	def DidFunctionSucceed(this):
+		return this.functor.DidFunctionSucceed()
+	
+	def DidRollbackSucceed(this):
+		return this.functor.DidRollbackSucceed()
