@@ -106,7 +106,12 @@ class Functor(Datum):
 		this.enableRollback = True
 
 		# Automatically return this.
+		# Also enables partial function calls.
 		this.enableAutoReturn = True
+
+		# Allow partial function calls by marking *this as incomplete.
+		# Incomplete means that more arguments need to be provided.
+		this.incomplete= False
 
 		# this.result encompasses the return value of *this.
 		# The code is a numerical result indication the success or failure of *this and is set automatically.
@@ -562,10 +567,17 @@ class Functor(Datum):
 			return this.GetExecutor().Execute(next, precursor=this, next=this.next)
 
 
+	# Prepare *this for any kind of operation.
+	# All initialization should be done here.
+	# RETURN boolean indicating whether or not *this is ready to do work.
 	def WarmUp(this, *args, **kwargs):
 
-		this.args = args
-		this.kwargs = kwargs
+		if (not this.incomplete):
+			this.args = []
+			this.kwargs = {}
+
+		this.args += args
+		this.kwargs.update(kwargs)
 		this.result.code = 0
 		this.result.data = util.DotDict()
 		
@@ -582,12 +594,22 @@ class Functor(Datum):
 			this.ValidateMethods()
 			if (this.executor):
 				this.executor.ResolvePlacementOf(this.name)
+
 		except Exception as e:
+
+			# Allow partial function calls
+			if (isinstance(e, MissingArgumentError) and this.enableAutoReturn):
+				this.incomplete = True
+				return False
+			
 			if (this.raiseExceptions):
 				raise e
 			else:
 				logging.error(f"ERROR: {e}")
 				util.LogStack()
+		
+		this.incomplete = False
+		return True
 
 
 	# Make functor.
@@ -601,6 +623,11 @@ class Functor(Datum):
 		
 		try:
 			this.WarmUp(*args, **kwargs)
+
+			if (this.incomplete):
+				logging.debug(f"{this.name} incomplete. Returning.")
+				return this
+			
 			logging.debug(f"{this.name}({this.args}, {this.kwargs})")
 
 			getattr(this, f"Before{this.callMethod}")()
@@ -666,7 +693,7 @@ class Functor(Datum):
 			except:
 				raise e
 	
-	
+
 	# Adapter for @recoverable.
 	# See Recoverable.py for details
 	def GetExecutor(this):

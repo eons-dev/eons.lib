@@ -8,7 +8,7 @@ def KindChild():
 def KindFunctor(
 	methods = eons.public_methods(
 		'KindChild',
-    	hello = 'HelloFunctor'
+		hello = 'HelloFunctor'
 	),
 	constructor = f"""
 this.sayHelloTo = "simplicity!"
