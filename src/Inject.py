@@ -12,6 +12,8 @@ class Inject(Functor):
 
 		this.argMapping.append('target')
 		this.argMapping.append('impl')
+
+		this.enableAutoReturn = False
 	
 	def Function(this):
 		# Prepare a dummy function to replace with a Method.

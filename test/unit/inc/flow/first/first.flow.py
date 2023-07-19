@@ -6,6 +6,7 @@ class first(eons.Functor):
 
 		this.functionSucceeded = True
 		this.enableRollback = False
+		this.enableAutoReturn = False
 		
 	@eons.method(impl="External")
 	def second(this):

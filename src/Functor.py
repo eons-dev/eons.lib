@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import types
 from copy import deepcopy
 import builtins
 from .Constants import *
@@ -104,7 +105,7 @@ class Functor(Datum):
 		# Rolling back can be disabled by setting this to False.
 		this.enableRollback = True
 
-		# Automatically return the result.data object if the function returns None
+		# Automatically return this.
 		this.enableAutoReturn = True
 
 		# this.result encompasses the return value of *this.
@@ -438,8 +439,9 @@ class Functor(Datum):
 			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
 
 			# appears to work for all python versions >= 3.8
-			setattr(this, method.name, method.__call__.__get__(method, method.__class__))
-
+			# setattr(this, method.name, method.__call__.__get__(method, method.__class__))
+			
+			setattr(this, method.name, types.MethodType(method, this))
 
 
 	# Set this.precursor
@@ -636,9 +638,15 @@ class Functor(Datum):
 
 		if (nextRet is not None):
 			ret = nextRet
+		elif (this.enableAutoReturn):
+			if (this.result.data is None):
+				this.result.data = ret
+			elif (not 'returned' in this.result.data):
+					this.result.data.returned = ret
+			else:
+				pass
 
-		if (this.enableAutoReturn and len(this.result.data) and ret is None):
-			ret = this.result.data
+			ret = this
 
 		logging.info(f"return {ret}")
 		FunctorTracker.Pop(this)
@@ -647,6 +655,18 @@ class Functor(Datum):
 		return ret
 
 
+	# Reduce the work required to access return values.
+	# Called when *this does not have a value set.
+	def __getattribute__(this, attribute):
+		try:
+			return super().__getattribute__(attribute)
+		except AttributeError as e:
+			try:
+				return this.result.data[attribute]
+			except:
+				raise e
+	
+	
 	# Adapter for @recoverable.
 	# See Recoverable.py for details
 	def GetExecutor(this):

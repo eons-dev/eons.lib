@@ -14,4 +14,4 @@ def KindFunctor(
 this.sayHelloTo = "simplicity!"
 """,
 ):
-	this.result.data['kind result'] = hello(KindChild())
+	this.result.data['kind_result'] = hello(KindChild().returned)

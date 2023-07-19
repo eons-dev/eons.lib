@@ -21,14 +21,14 @@ class External(eons.Method):
 			this.type = eons.ExecutorTracker.GetLatest().defaultPackageType
 
 		this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type)
-
 		if (not this.functor):
 			raise eons.MissingMethodError(f"Could not populate external method {this.functorName} (type {this.type})")
 		
 		this.functor.name = f"{this.functor.name} (external)"
+		this.enableAutoReturn = this.functor.enableAutoReturn
 
-		# To allow this.functor to be called with *args, we must also allow this to be called with *args.
-		this.argMapping = this.functor.argMapping
+		# To allow this.functor to be called with *args, we must also allow this to be called with *args (+ this).
+		this.argMapping += this.functor.argMapping
 
 	def PopulateFrom(this, function):
 		this.functorName = function.__name__
@@ -41,14 +41,17 @@ class External(eons.Method):
 		})
 		this.functor.caller = this.caller
 		return kwargs
+	
+	def WarmUp(this, *args, **kwargs):
+		super().WarmUp(*args, **kwargs)
+		this.functor.WarmUp(*this.args[1:], **this.GetKWArgsForMethod())
 
 	def Function(this):
-		ret = this.functor(*this.args, **this.GetKWArgsForMethod())
+		ret = this.functor.Function()
 		this.result = this.functor.result
 		return ret
 
 	def Rollback(this):
-		this.functor.WarmUp(*this.args, **this.GetKWArgsForMethod())
 		ret = this.functor.Rollback()
 		this.result = this.functor.result
 		return ret

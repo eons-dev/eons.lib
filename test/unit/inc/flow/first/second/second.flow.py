@@ -6,6 +6,7 @@ class second(eons.Functor):
 
 		this.functionSucceeded = True
 		this.enableRollback = False
+		this.enableAutoReturn = False
 
 	def Function(this):
 		return {"value": 2}

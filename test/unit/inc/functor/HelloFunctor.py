@@ -4,6 +4,8 @@ class HelloFunctor(eons.StandardFunctor):
 	def __init__(this, name="HelloFunctor"):
 		super().__init__(name)
 
+		this.enableAutoReturn = False
+
 		this.optionalKWArgs['say_hi_to'] = 'you'
 
 		this.argMapping.append('say_hi_to')

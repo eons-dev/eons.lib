@@ -86,6 +86,9 @@ class Method(Functor):
 		this.rollbackSucceeded = True
 		this.enableRollback = False
 
+		# Methods,by default, do not return themselves.
+		this.enableAutoReturn = False
+
 		# The source code of the function we're implementing.
 		this.source = ""
 
@@ -94,6 +97,8 @@ class Method(Functor):
 		this.original.cls.object = None
 		this.original.cls.name = 'None'
 		this.original.function = None
+
+		this.argMapping = ['caller']
 
 
 	# Make *this execute the code in this.source

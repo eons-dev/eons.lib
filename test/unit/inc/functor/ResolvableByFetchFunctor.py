@@ -6,6 +6,8 @@ class ResolvableByFetchFunctor(eons.Functor):
 	def __init__(this, name="ResolvableByFetchFunctor"):
 		super().__init__(name)
 
+		this.enableAutoReturn = False
+
 
 	# Functor required method, see that class for details.
 	def Function(this):

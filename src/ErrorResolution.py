@@ -55,6 +55,7 @@ class ErrorResolution(StandardFunctor):
 
 		this.errorShouldBeResolved = False
 
+		this.enableAutoReturn = False
 
 
 	# Put your logic here!

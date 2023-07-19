@@ -4,6 +4,8 @@ class EnemyFunctor(eons.Functor):
 	def __init__(this, name="EnemyFunctor"):
 		super().__init__(name)
 
+		this.enableAutoReturn = False
+
 		this.requiredMethods.append('Hello')
 
 		this.requiredKWArgs.append('enemy')

@@ -32,8 +32,6 @@ class PublicMethods(AccessControl):
 				'default': inject(source)
 			})
 
-		return this
-
 def public_methods(*args, **kwargs):
 	[kwargs.update({arg: arg}) for arg in args]
 	return PublicMethods()(**kwargs)
