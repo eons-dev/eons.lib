@@ -148,6 +148,9 @@ class Functor(Datum):
 		this.callbacks = util.DotDict()
 		this.callbacks.fetch = None
 
+		this.abort = util.DotDict()
+		this.abort.WarmUp = False
+
 
 	# Override this and do whatever!
 	# This is purposefully vague.
@@ -551,15 +554,20 @@ class Functor(Datum):
 		# FIXME: Debug this.
 		proceedToNext = False
 		next = None
+		nextName = ""
 		try:
 			next = this.next.pop(0)
+			if (isinstance(next, str)):
+				nextName = next
+			else:
+				nextName = next.name
 			proceedToNext = True
 		except Exception as e:
-			logging.error(f"{this.name} not proceeding to next: {e}; next: {this.next}")
+			logging.error(f"{this.name} not proceeding to next: {e}; next: {nextName} (from {this.next})")
 			return None
 
 		if (this.GetExecutor() is None):
-			raise InvalidNext(f"{this.name} has no executor and cannot execute next ({this.next}).")
+			raise InvalidNext(f"{this.name} has no executor and cannot execute next: {nextName} (from {this.next}).")
 
 		if (proceedToNext):
 			if (not this.ValidateNext(next)):
@@ -571,13 +579,24 @@ class Functor(Datum):
 	# All initialization should be done here.
 	# RETURN boolean indicating whether or not *this is ready to do work.
 	def WarmUp(this, *args, **kwargs):
-
+		if (FunctorTracker.Instance().sequence.current.running):
+			# We just started a new sequence. We're not ready to do work yet.
+			if (FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state == 'initiated'):
+				this.incomplete = True
+				this.abort.WarmUp = True
+				FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state = 'ready'
+		# NOTE: this.abortWarmUp will (should) be set by the precursor before calling *this.
+		
 		if (not this.incomplete):
 			this.args = []
 			this.kwargs = {}
 
 		this.args += args
 		this.kwargs.update(kwargs)
+
+		if (this.abort.WarmUp):
+			return False
+			
 		this.result.code = 0
 		this.result.data = util.DotDict()
 		
@@ -624,8 +643,16 @@ class Functor(Datum):
 		try:
 			this.WarmUp(*args, **kwargs)
 
+			# TODO: Can we make this more performant? We should avoid doing this every time if we can.
+			isSequence = this.WillPerformSequence()
+			if (isSequence):
+				FunctorTracker.InitiateSequence() # Has to be after WarmUp.
+
 			if (this.incomplete):
-				logging.debug(f"{this.name} incomplete. Returning.")
+				logging.debug(f"{this.name} incomplete.")
+				logging.info(f"return {ret}")
+				FunctorTracker.Pop(this)
+				logging.info(f"}} ({this.name})")
 				return this
 			
 			logging.debug(f"{this.name}({this.args}, {this.kwargs})")
@@ -716,6 +743,29 @@ class Functor(Datum):
 				continue
 			setattr(ret, key, deepcopy(val, memodict))
 		return ret
+	
+
+	# Enable sequences to be built/like/this
+	def __truediv__(this, next):
+		if (not isinstance(next, Functor)):
+			return this
+		this.next.append(next)
+		next.abort.WarmUp = False
+		return this.CallNext()
+	
+
+	# Avert your eyes!
+	# This is deep black magick fuckery.
+	# And no. There does not appear to be any other way to do this on CPython <=3.11
+	def WillPerformSequence(this, backtrack=2):
+		try:
+			import dis, inspect
+			# NOTE: 11 is apparently the code for the __truediv__ division operator (/). On this system. For now...
+			return [i for i in [i for i in dis.get_instructions(eval(f"inspect.currentframe(){'.f_back' * backtrack}.f_code")) if i.opname == 'BINARY_OP'] if i.arg == 11] > 0
+		except:
+			# Yeah...
+			return False
+
 
 
 	######## START: Fetch Locations ########

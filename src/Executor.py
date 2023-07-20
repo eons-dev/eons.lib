@@ -549,19 +549,22 @@ class Executor(DataContainer, Functor):
 	# Execute a Functor based on name alone (not object).
 	# If the given Functor has been Executed before, the cached Functor will be called again. Otherwise, a new Functor will be constructed.
 	@recoverable
-	def Execute(this, functorName, *args, **kwargs):
-		packageType = this.defaultPackageType
-		if ('packageType' in kwargs):
-			packageType = kwargs.pop('packageType')
+	def Execute(this, functor, *args, **kwargs):
+		if (isinstance(functor, str)):
+			functorName = functor
+			packageType = this.defaultPackageType
+			if ('packageType' in kwargs):
+				packageType = kwargs.pop('packageType')
+
+			if (functorName in this.cachedFunctors):
+				functor = this.cachedFunctors[functorName]
+			else:
+				functor = this.GetRegistered(functorName, packageType)
+		else:
+			functorName = functor.name
 
 		logging.debug(f"Executing {functorName}({', '.join([str(a) for a in args] + [k+'='+str(v) for k,v in kwargs.items()])})")
-
-		if (functorName in this.cachedFunctors):
-			return this.cachedFunctors[functorName](*args, **kwargs, executor=this)
-
-		functor = this.GetRegistered(functorName, packageType)
 		this.cachedFunctors.update({functorName: functor})
-
 		return functor(*args, **kwargs, executor=this)
 
 

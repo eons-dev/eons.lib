@@ -1,4 +1,5 @@
 import logging
+from .Utils import util
 
 # FunctorTracker is a global singleton which keeps a record of all functors that are currently in the call stack.
 # Functors should add and remove themselves from this list when they are called.
@@ -12,6 +13,12 @@ class FunctorTracker:
 			return None
 
 		this.functors = [None]
+
+		this.sequence = util.DotDict()
+		this.sequence.current = util.DotDict()
+		this.sequence.current.running = False
+		this.sequence.current.stage = 0
+		this.sequence.stage = []
 
 	@staticmethod
 	def Instance():
@@ -37,3 +44,17 @@ class FunctorTracker:
 	@staticmethod
 	def GetCount():
 		return len(FunctorTracker.Instance().functors)
+
+	@staticmethod
+	def InitiateSequence():
+		FunctorTracker.Instance().sequence.current.running = True
+		FunctorTracker.Instance().sequence.current.stage += 1
+		FunctorTracker.Instance().sequence.stage.append(util.DotDict({'state': 'initiated'}))
+
+	@staticmethod
+	def CompleteSequence():
+		if (not FunctorTracker.Instance().sequence.current.running):
+			return
+		FunctorTracker.Instance().sequence.current.stage -= 1
+		FunctorTracker.Instance().sequence.stage.pop()
+		FunctorTracker.Instance().sequence.current.running = FunctorTracker.Instance().sequence.current.stage > 0

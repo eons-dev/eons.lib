@@ -143,5 +143,14 @@ class util:
 		setattr(logging.getLogger(), methodName, logForLevel)
 		setattr(logging, methodName, logToRoot)
 
+	@staticmethod
+	def forerunner(forerunner, *forerunnerArgs, **forerunnerKwargs):
+		def WrapperFactory(function):
+			def Wrapper(*functionArgs, **functionKwargs):
+				forerunner(*forerunnerArgs, **forerunnerKwargs)
+				return function(*functionArgs, **functionKwargs)
+			return Wrapper
+		return WrapperFactory
+
 
 jsonpickle.handlers.registry.register(util.DotDict, util.DotDictPickler)
