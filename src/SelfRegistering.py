@@ -5,6 +5,7 @@ import importlib.machinery
 import importlib.util
 import types
 from .Exceptions import *
+from .Namespace import Namespace, NamespaceTracker
 
 #Self registration for use with json loading.
 #Any class that derives from SelfRegistering can be instantiated with:
@@ -70,10 +71,15 @@ class SelfRegistering(object):
 			module = types.ModuleType(loader.name)
 			loader.exec_module(module)
 
+			# Mangle the module name to include the namespace.
+			# The namespace is set when exec'ing the module, so we'll reset it after.
+			importName = NamespaceTracker.Instance().last.ToName() + moduleName
+			NamespaceTracker.Instance().last = Namespace()
+
 			# NOTE: the module is not actually imported in that it is available through sys.modules.
 			# However, this appears to be enough to get both inheritance and SelfRegistering functionality to work.
-			sys.modules[moduleName] = module #But just in case...
-			logging.debug(f"{moduleName} imported.")
+			sys.modules[importName] = module #But just in case...
+			logging.debug(f"{moduleName} imported as {importName}.")
 
 			#### Other Options ####
 			# __import__(module)

@@ -20,6 +20,7 @@ from .Recoverable import recoverable
 from .Utils import util
 from .ExecutorTracker import ExecutorTracker
 from .FunctorTracker import FunctorTracker
+from .Namespace import Namespace
 
 # Executor: a base class for user interfaces.
 # An Executor is a functor and can be executed as such.
@@ -53,6 +54,7 @@ class Executor(DataContainer, Functor):
 		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
 			'find_by_fetch',
 			'import_module',
+			'namespace_lookup',
 			'install_from_repo_with_default_package_type',
 			'install_from_repo',
 			'install_with_pip'
@@ -658,7 +660,11 @@ class Executor(DataContainer, Functor):
 	@recoverable
 	def GetRegistered(this,
 		registeredName,
-		packageType=""):
+		packageType="",
+		namespace=None):
+
+		if (namespace):
+			registeredName = Namespace(namespace).ToName() + registeredName
 
 		try:
 			registered = SelfRegistering(registeredName)

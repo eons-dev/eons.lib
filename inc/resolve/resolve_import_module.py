@@ -16,6 +16,9 @@ class import_module(eons.ErrorResolution):
 			this.errorShouldBeResolved = False
 			return
 
-		moduleToHack = inspect.getmodule(this.function)
-		setattr(moduleToHack, this.errorObject, sys.modules[this.errorObject])
+		eons.util.BlackMagick.InjectIntoModule(
+			this.function,
+			this.errorObject,
+			sys.modules[this.errorObject]
+		)
 		this.errorShouldBeResolved = True

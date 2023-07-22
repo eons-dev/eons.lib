@@ -1,6 +1,7 @@
 import traceback
 import logging
 import jsonpickle
+import inspect
 from .Exceptions import *
 from copy import deepcopy
 
@@ -151,6 +152,14 @@ class util:
 				return function(*functionArgs, **functionKwargs)
 			return Wrapper
 		return WrapperFactory
+	
+
+	class BlackMagick:
+
+		@staticmethod
+		def InjectIntoModule(source, name, value):
+			moduleToHack = inspect.getmodule(source)
+			setattr(moduleToHack, name, value)
 
 
 jsonpickle.handlers.registry.register(util.DotDict, util.DotDictPickler)

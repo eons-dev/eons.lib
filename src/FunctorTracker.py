@@ -1,5 +1,6 @@
 import logging
 from .Utils import util
+from .Namespace import Namespace
 
 # FunctorTracker is a global singleton which keeps a record of all functors that are currently in the call stack.
 # Functors should add and remove themselves from this list when they are called.
@@ -45,12 +46,15 @@ class FunctorTracker:
 	def GetCount():
 		return len(FunctorTracker.Instance().functors)
 
+
+	# Add a sequence to *this.
 	@staticmethod
 	def InitiateSequence():
 		FunctorTracker.Instance().sequence.current.running = True
 		FunctorTracker.Instance().sequence.current.stage += 1
 		FunctorTracker.Instance().sequence.stage.append(util.DotDict({'state': 'initiated'}))
 
+	# Remove a sequence from *this.
 	@staticmethod
 	def CompleteSequence():
 		if (not FunctorTracker.Instance().sequence.current.running):
@@ -58,3 +62,15 @@ class FunctorTracker:
 		FunctorTracker.Instance().sequence.current.stage -= 1
 		FunctorTracker.Instance().sequence.stage.pop()
 		FunctorTracker.Instance().sequence.current.running = FunctorTracker.Instance().sequence.current.stage > 0
+
+	
+	# Calculate the current namespace, trimming off the last backtrack number of namespaces.
+	# The first Functor we Track is likely the Executor, so make sure to skip that.
+	@staticmethod
+	def GetCurrentNamespace(backtrack=0, start=1):
+		return Namespace(FunctorTracker.Instance().functors[start:len(FunctorTracker.Instance().functors) - (backtrack+1)])
+
+	# Get the current namespace as a python usable Functor name.
+	@staticmethod
+	def GetCurrentNamespaceAsName(backtrack=0, start=1):
+		return Namespace.ToName(FunctorTracker.GetCurrentNamespace(start, backtrack))

@@ -1,6 +1,7 @@
 import logging
 import os
 import shutil
+import dis, inspect
 import types
 from copy import deepcopy
 import builtins
@@ -9,6 +10,7 @@ from .Datum import Datum
 from .Exceptions import *
 from .Utils import util
 from .FunctorTracker import FunctorTracker
+
 # Don't import Method or Executor, even though they are required: it will cause a circular dependency.
 # Instead, pretend there's a forward declaration here and don't think too hard about it ;)
 ################################################################################
@@ -416,8 +418,14 @@ class Functor(Datum):
 			if (not util.HasAttr(this, source)):
 				logging.debug(f"Could not find {source}; will not pull in its methods.")
 				continue
+
+			methodSource = util.GetAttr(this, source)
+			if (not isinstance(methodSource, dict)):
+				logging.debug(f"{source} is not a dict; will not pull in its methods.")
+				continue
+
 			logging.debug(f"Populating methods from {source}.")
-			for method in util.GetAttr(this, source).values():
+			for method in methodSource.values():
 				if (honorPropagate and not method.propagate):
 					continue
 				if (method.name in this.methods.keys() and honorPropagate):
@@ -710,7 +718,7 @@ class Functor(Datum):
 
 
 	# Reduce the work required to access return values.
-	# Called when *this does not have a value set.
+	# Make it possible to access related classes on the fly.
 	def __getattribute__(this, attribute):
 		try:
 			return super().__getattribute__(attribute)
@@ -719,7 +727,7 @@ class Functor(Datum):
 				return this.result.data[attribute]
 			except:
 				raise e
-	
+
 
 	# Adapter for @recoverable.
 	# See Recoverable.py for details
@@ -759,13 +767,11 @@ class Functor(Datum):
 	# And no. There does not appear to be any other way to do this on CPython <=3.11
 	def WillPerformSequence(this, backtrack=2):
 		try:
-			import dis, inspect
 			# NOTE: 11 is apparently the code for the __truediv__ division operator (/). On this system. For now...
 			return [i for i in [i for i in dis.get_instructions(eval(f"inspect.currentframe(){'.f_back' * backtrack}.f_code")) if i.opname == 'BINARY_OP'] if i.arg == 11] > 0
 		except:
 			# Yeah...
 			return False
-
 
 
 	######## START: Fetch Locations ########
