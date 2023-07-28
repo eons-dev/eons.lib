@@ -1,4 +1,5 @@
 import logging
+import sys
 #from .Executor import Executor # don't import this, it'll be circular!
 from .Exceptions import *
 from .Utils import util

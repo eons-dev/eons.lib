@@ -48,3 +48,5 @@ class StandardTestFixture(object):
 		for r in register:
 			this.executor.RegisterAllClassesInDirectory(GetIncludePath(r))
 
+	def GetExecutor(this):
+		return this.executor

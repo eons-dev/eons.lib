@@ -9,6 +9,7 @@ class namespace_lookup(eons.ErrorResolution):
 		super().__init__(name)
 
 		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
+		this.ApplyTo('AttributeError', "'NameError' object has no attribute 'OBJECT'")
 
 	def Resolve(this):
 		requested = None
@@ -21,9 +22,11 @@ class namespace_lookup(eons.ErrorResolution):
 			if (namespacedObjectName in sys.modules.keys()):
 				eons.util.BlackMagick.InjectIntoModule(
 					this.function,
-					this.errorObject,
+					namespacedObjectName,
 					sys.modules[namespacedObjectName]
 				)
+				# Create the symbol as an instance of the namespaced module's class.
+				this.executor.SetGlobal(this.errorObject, getattr(sys.modules[namespacedObjectName], this.errorObject)())
 				this.errorShouldBeResolved = True
 				return
 			

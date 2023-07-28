@@ -68,7 +68,7 @@ class FunctorTracker:
 	# The first Functor we Track is likely the Executor, so make sure to skip that.
 	@staticmethod
 	def GetCurrentNamespace(backtrack=0, start=1):
-		return Namespace(FunctorTracker.Instance().functors[start:len(FunctorTracker.Instance().functors) - (backtrack+1)])
+		return Namespace([functor.name for functor in FunctorTracker.Instance().functors[start:len(FunctorTracker.Instance().functors) - (backtrack+1)]])
 
 	# Get the current namespace as a python usable Functor name.
 	@staticmethod

@@ -10,6 +10,8 @@ from .Datum import Datum
 from .Exceptions import *
 from .Utils import util
 from .FunctorTracker import FunctorTracker
+from .ExecutorTracker import ExecutorTracker
+from .Recoverable import Recover
 
 # Don't import Method or Executor, even though they are required: it will cause a circular dependency.
 # Instead, pretend there's a forward declaration here and don't think too hard about it ;)
@@ -434,6 +436,7 @@ class Functor(Datum):
 						continue
 
 					methodToInsert = deepcopy(method)
+					methodToInsert.caller = this
 					methodToInsert.UpdateSource()
 
 					if (existingMethod.inheritedMethodsFirst):
@@ -445,11 +448,11 @@ class Functor(Datum):
 						this.methods[method.name].next.append(methodToInsert)
 				else:
 					this.methods[method.name] = deepcopy(method)
+					this.methods[method.name].caller = this
 					this.methods[method.name].UpdateSource()
 
 		for method in this.methods.values():
 			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
-			method.caller = this
 
 			# Python < 3.11
 			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
@@ -467,7 +470,9 @@ class Functor(Datum):
 			if ('executor' in this.kwargs):
 				this.executor = this.kwargs.pop('executor')
 			else:
-				logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
+				this.executor = ExecutorTracker.GetLatest()
+		if (not this.executor):
+			logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
 		if ('precursor' in this.kwargs):
 			this.precursor = this.kwargs.pop('precursor')
@@ -574,13 +579,14 @@ class Functor(Datum):
 			logging.error(f"{this.name} not proceeding to next: {e}; next: {nextName} (from {this.next})")
 			return None
 
-		if (this.GetExecutor() is None):
-			raise InvalidNext(f"{this.name} has no executor and cannot execute next: {nextName} (from {this.next}).")
-
 		if (proceedToNext):
 			if (not this.ValidateNext(next)):
 				raise InvalidNext(f"Failed to validate {next}")
-			return this.GetExecutor().Execute(next, precursor=this, next=this.next)
+
+			if (this.GetExecutor()):
+				return this.GetExecutor().Execute(next, precursor=this, next=this.next)
+			
+			return next(precursor=this, next=this.next)
 
 
 	# Prepare *this for any kind of operation.
@@ -727,6 +733,25 @@ class Functor(Datum):
 				return this.result.data[attribute]
 			except:
 				raise e
+
+				# TODO: This should work, in theory. However, what seems to happen is that the program just gets slower and slower until it hangs. There's no infinite loop (in the python code at least), and there's no obvious point of error. Just some function somewhere will stop working.
+				# Last time I tested this, I was able to get repeatable failures on the line: `logging.getLogger('urllib3').setLevel(logging.WARNING)` while running TestNamespace in isolation (i.e. no other tests, no ebbs, etc)
+				# PyCharm says "unable to display frame variables"
+				# That line doesn't even use this codebase. My best guess is that it has something to do with our custom log formatter. However, pinning that down has proven difficult.
+				#
+				# try:
+				# 	if (not hasattr(this, 'executor')):
+				# 		raise e
+				# 	# Beseech the error resolution machinery.
+				# 	return Recover(
+				# 		e,
+				# 		this,
+				# 		this.executor,
+				# 		this.__getattribute__,
+				# 		attribute
+				# 	)
+				# except:
+				# 	raise e
 
 
 	# Adapter for @recoverable.

@@ -19,8 +19,11 @@ class External(eons.Method):
 	def UpdateSource(this):
 		if (not this.type):
 			this.type = eons.ExecutorTracker.GetLatest().defaultPackageType
+		try:
+			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type, namespace = this.caller.name)
+		except:
+			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type)
 
-		this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type)
 		if (not this.functor):
 			raise eons.MissingMethodError(f"Could not populate external method {this.functorName} (type {this.type})")
 		
