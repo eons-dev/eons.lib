@@ -7,7 +7,7 @@ class Namespace:
 		this.namespaces = []
 
 		if (isinstance(namespaces, str)):
-			this.namespaces = namespaces.split('::')
+			this.namespaces = namespaces.split(':')
 			this.namespaces = [namespace for namespace in this.namespaces if len(namespace)]
 		elif (isinstance(namespaces, list)):
 			this.namespaces = namespaces
@@ -19,7 +19,10 @@ class Namespace:
 		return Namespace(this.namespaces[start:end])
 	
 	def __str__(this):
-		return "::".join(this.namespaces) + "::"
+		ret = "::" + ":".join(this.namespaces)
+		if (ret == "::"):
+			return "::"
+		return ret + ":"
 
 	# Get a namespace string as something more reasonable in python.
 	def ToName(this):

@@ -76,6 +76,8 @@ class SelfRegistering(object):
 			importName = NamespaceTracker.Instance().last.ToName() + moduleName
 			NamespaceTracker.Instance().last = Namespace()
 
+			setattr(module, '_source', os.path.join(directory, file))
+
 			# NOTE: the module is not actually imported in that it is available through sys.modules.
 			# However, this appears to be enough to get both inheritance and SelfRegistering functionality to work.
 			sys.modules[importName] = module #But just in case...

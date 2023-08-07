@@ -63,7 +63,7 @@ def kind(
 
 			# Source mangling
 			# TODO: Expand as we have more solid test cases.
-			source = re.sub(fr"{arg.name}([\s\[\]\.\(\)\}}\*\+/-=%]|$)", fr"{replaceWith}\1", source)
+			source = re.sub(fr"{arg.name}([\s\[\]\.\(\)\}}\*\+/-=%,]|$)", fr"{replaceWith}\1", source)
 			
 		return functor, source, ctor
 
@@ -89,7 +89,7 @@ def kind(
 		args = inspect.signature(function).parameters
 		source = inspect.getsource(function)
 		source = source[source.find(':\n')+1:].strip() # Will fail if an arg has ':\n' in it
-		source = re.sub(r'caller([\s\[\]\.\(\)\}\*\+/-=%]|$)', r'this.caller\1', source)
+		source = re.sub(r'caller([\s\[\]\.\(\)\}\*\+/-=%,]|$)', r'this.caller\1', source)
 
 		ctor = util.DotDict()
 		ctor.source = []

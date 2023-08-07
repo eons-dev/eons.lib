@@ -3,7 +3,7 @@ import builtins
 import argparse
 import logging
 import requests
-import jsonpickle
+import importlib
 import yaml
 from requests_futures.sessions import FuturesSession
 from pathlib import Path
@@ -98,6 +98,10 @@ class Executor(DataContainer, Functor):
 
 		# All repository configuration.
 		this.repo = util.DotDict()
+
+		# The observatory is a means of communicating with Constellatus.
+		# While the repo may provide any arbitrary data in zip format, Stars observed from Constellatus are specially handled.
+		this.observatory = util.DotDict()
 
 		# Placement helps to construct the correct load order of Functors as they are installed.
 		this.placement = util.DotDict()
@@ -434,6 +438,18 @@ class Executor(DataContainer, Functor):
 		}
 		for key, default in details.items():
 			this.repo[key] = this.Fetch(f"repo_{key}", default=default)
+	
+
+	# Get information for interacting with Constellatus
+	def PopulateObservatoryDetails(this):
+		details = {
+			"online": not this.Fetch('no_observatory', False, ['this', 'args', 'config']),
+			"url": "http://localhost:1137",
+			"username": None,
+			"password": None
+		}
+		for key, default in details.items():
+			this.observatory[key] = this.Fetch(f"observatory_{key}", default=default)
 
 
 	# How do we get the verbosity level and what do we do with it?
@@ -654,6 +670,44 @@ class Executor(DataContainer, Functor):
 
 		return True
 
+
+	@recoverable
+	def ObserveStarCluster(this, starCluster):
+		
+		if (not this.observatory.online):
+			logging.debug(f"Refusing to observe {starCluster}; we were told not to use an observatory.")
+			raise ConstellatusError(f"Unable to observe {starCluster}: Observatory is offline.")
+		
+		logging.debug(f"Observing {starCluster}")
+
+		url = f"{this.observatory.url}/{starCluster}"
+
+		auth = None
+		if this.observatory.username and this.observatory.password:
+			auth = requests.auth.HTTPBasicAuth(this.observatory.username, this.observatory.password)
+
+		headers = {
+			"Connection": "keep-alive",
+		}
+
+		observation = requests.get(url, auth=auth, headers=headers, stream=True)
+
+		if (observation.status_code != 200):
+			raise ConstellatusError(f"Unable to observe {starCluster}")
+		
+		try:
+			# Load the code from Constellatus into a module on the fly
+			moduleName = starCluster.replace(':', '_').replace('.', '_')
+			spec = importlib.util.spec_from_loader(moduleName, loader=None)
+			module = importlib.util.module_from_spec(spec)
+			exec(observation.content, module.__dict__)
+			sys.modules[moduleName] = module
+			globals()[moduleName] = module
+			logging.debug(f"Completed observation of {starCluster}")
+		except Exception as e:
+			raise ConstellatusError(f"Unable to observe {starCluster}: {e}")
+
+
 	# RETURNS and instance of a Datum, Functor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
 	# Will attempt to register existing modules if one of the given name is not found. Failing that, the given package will be downloaded if it can be found online.
 	# Both python modules and other eons modules of the same packageType will be installed automatically in order to meet all required dependencies of the given module.
@@ -663,18 +717,25 @@ class Executor(DataContainer, Functor):
 		packageType="",
 		namespace=None):
 
+		if (packageType):
+			packageType = "." + packageType
+		
 		if (namespace):
 			registeredName = Namespace(namespace).ToName() + registeredName
 
 		try:
 			registered = SelfRegistering(registeredName)
 		except Exception as e:
-			# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
-			packageName = registeredName
-			if (packageType):
-				packageName = f"{registeredName}.{packageType}"
-			logging.error(f"While trying to instantiate {packageName}, got: {e}")
-			raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
+			try:
+				# If the Observatory is online, let's try to use Constellatus.
+				this.ObserveStarCluster(f"{str(Namespace(namespace))}{registeredName}{packageType}")
+				registered = SelfRegistering(registeredName)
+			except: # We don't care about Constellatus errors right now.
+
+				# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
+				packageName = registeredName + packageType
+				logging.error(f"While trying to instantiate {packageName}, got: {e}")
+				raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
 		# NOTE: Functors are Data, so they have an IsValid() method
 		if (not registered or not registered.IsValid()):
@@ -697,15 +758,6 @@ class Executor(DataContainer, Functor):
 			this.syspath.append(directory)
 
 		SelfRegistering.RegisterAllClassesInDirectory(directory, recurse=recurse)
-
-
-	# Utility method. may not be useful.
-	@staticmethod
-	def SplitNameOnpackageType(name):
-		splitName = name.split('_')
-		if (len(splitName)>1):
-			return splitName[0], splitName[1]
-		return "", name
 
 
 	# Set a global value for use throughout all python modules.

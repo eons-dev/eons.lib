@@ -832,6 +832,8 @@ class Functor(Datum):
 	# Call the Executor's Fetch method.
 	# Exclude 'environment' because we can check that ourselves.
 	def fetch_location_executor(this, varName, default, fetchFrom, attempted):
+		if (not this.GetExecutor()):
+			return default, False
 		return this.GetExecutor().FetchWithout(['environment'], varName, default, fetchFrom, False, attempted)
 
 

@@ -31,3 +31,5 @@ class FatalCannotExecute(Fatal, metaclass=ActualType): pass
 class PackageError(Exception, metaclass=ActualType): pass
 
 class MethodPendingPopulation(Exception, metaclass=ActualType): pass
+
+class ConstellatusError(Exception, metaclass=ActualType): pass
