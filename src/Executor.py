@@ -520,6 +520,7 @@ class Executor(DataContainer, Functor):
 		logging.debug(f"Got extra arguments: {this.extraArgs}") # has to be after verbosity setting
 		logging.debug(f"Got config contents: {this.config}")
 		this.PopulateRepoDetails()
+		this.PopulateObservatoryDetails()
 		this.placement.max = this.Fetch('placement_max', 255, this.fetchFromDuringSetup)
 
 
