@@ -443,7 +443,7 @@ class Executor(DataContainer, Functor):
 	# Get information for interacting with Constellatus
 	def PopulateObservatoryDetails(this):
 		details = {
-			"online": not this.Fetch('no_observatory', True, ['this', 'args', 'config']),
+			"online": False,
 			"url": "http://localhost:1137",
 			"username": None,
 			"password": None
