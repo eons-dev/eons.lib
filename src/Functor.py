@@ -725,33 +725,15 @@ class Functor(Datum):
 
 	# Reduce the work required to access return values.
 	# Make it possible to access related classes on the fly.
-	def __getattribute__(this, attribute):
+	def __getattr__(this, attribute):
 		try:
-			return super().__getattribute__(attribute)
-		except AttributeError as e:
-			try:
+			this.__getattribute__(attribute)
+		except:
+			if (attribute in this.result.data):
 				return this.result.data[attribute]
-			except:
-				raise e
-
-				# TODO: This should work, in theory. However, what seems to happen is that the program just gets slower and slower until it hangs. There's no infinite loop (in the python code at least), and there's no obvious point of error. Just some function somewhere will stop working.
-				# Last time I tested this, I was able to get repeatable failures on the line: `logging.getLogger('urllib3').setLevel(logging.WARNING)` while running TestNamespace in isolation (i.e. no other tests, no ebbs, etc)
-				# PyCharm says "unable to display frame variables"
-				# That line doesn't even use this codebase. My best guess is that it has something to do with our custom log formatter. However, pinning that down has proven difficult.
-				#
-				# try:
-				# 	if (not hasattr(this, 'executor')):
-				# 		raise e
-				# 	# Beseech the error resolution machinery.
-				# 	return Recover(
-				# 		e,
-				# 		this,
-				# 		this.executor,
-				# 		this.__getattribute__,
-				# 		attribute
-				# 	)
-				# except:
-				# 	raise e
+			else:
+				raise AttributeError(f"{this.name} has no attribute {attribute}")
+		#TODO: enable access of non existent members via the recovery machinery (e.g. this.retrievedViaTheNetwork.whatever)
 
 
 	# Adapter for @recoverable.

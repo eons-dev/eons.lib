@@ -100,7 +100,7 @@ class Executor(DataContainer, Functor):
 		this.repo = util.DotDict()
 
 		# The observatory is a means of communicating with Constellatus.
-		# While the repo may provide any arbitrary data in zip format, Stars observed from Constellatus are specially handled.
+		# While the repo may provide any arbitrary data in zip format, Stars located from Constellatus are specially handled.
 		this.observatory = util.DotDict()
 
 		# Placement helps to construct the correct load order of Functors as they are installed.
@@ -451,7 +451,6 @@ class Executor(DataContainer, Functor):
 		for key, default in details.items():
 			this.observatory[key] = this.Fetch(f"observatory_{key}", default=default)
 
-
 	# How do we get the verbosity level and what do we do with it?
 	# This method should set log levels, etc.
 	def SetVerbosity(this, fetch=True):
@@ -673,13 +672,12 @@ class Executor(DataContainer, Functor):
 
 
 	@recoverable
-	def ObserveStarCluster(this, starCluster):
-		
+	def LocateStarCluster(this, starCluster):
 		if (not this.observatory.online):
-			logging.debug(f"Refusing to observe {starCluster}; we were told not to use an observatory.")
-			raise ConstellatusError(f"Unable to observe {starCluster}: Observatory is offline.")
+			logging.debug(f"Refusing to locate {starCluster}; we were told not to use an observatory.")
+			raise ConstellatusError(f"Unable to locate {starCluster}: Observatory is offline.")
 		
-		logging.debug(f"Observing {starCluster}")
+		logging.debug(f"Locating {starCluster}")
 
 		url = f"{this.observatory.url}/{starCluster}"
 
@@ -694,7 +692,7 @@ class Executor(DataContainer, Functor):
 		observation = requests.get(url, auth=auth, headers=headers, stream=True)
 
 		if (observation.status_code != 200):
-			raise ConstellatusError(f"Unable to observe {starCluster}")
+			raise ConstellatusError(f"Unable to locate {starCluster}")
 		
 		try:
 			# Load the code from Constellatus into a module on the fly
@@ -706,7 +704,7 @@ class Executor(DataContainer, Functor):
 			globals()[moduleName] = module
 			logging.debug(f"Completed observation of {starCluster}")
 		except Exception as e:
-			raise ConstellatusError(f"Unable to observe {starCluster}: {e}")
+			raise ConstellatusError(f"Unable to locate {starCluster}: {e}")
 
 
 	# RETURNS and instance of a Datum, Functor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
@@ -729,7 +727,7 @@ class Executor(DataContainer, Functor):
 		except Exception as e:
 			try:
 				# If the Observatory is online, let's try to use Constellatus.
-				this.ObserveStarCluster(f"{str(Namespace(namespace))}{registeredName}{packageType}")
+				this.LocateStarCluster(f"{str(Namespace(namespace))}{registeredName}{packageType}")
 				registered = SelfRegistering(registeredName)
 			except: # We don't care about Constellatus errors right now.
 
