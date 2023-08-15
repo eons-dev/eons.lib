@@ -54,12 +54,12 @@ def kind(
 						defaultValue = arg.default
 						if (isinstance(arg.default, str)):
 							defaultValue = f"'{arg.default}'"
-						ctor.source.append(f"this.optionalKWArgs['{arg.name}'] = {defaultValue}")
+						ctor.source.append(f"this.arg.kw.optional['{arg.name}'] = {defaultValue}")
 				else:
-					ctor.source.append(f"this.requiredKWArgs.append('{arg.name}')")
+					ctor.source.append(f"this.arg.kw.required.append('{arg.name}')")
 
 				if (shouldMapArg):
-					ctor.source.append(f"this.argMapping.append('{arg.name}')")
+					ctor.source.append(f"this.arg.mapping.append('{arg.name}')")
 
 			# Source mangling
 			# TODO: Expand as we have more solid test cases.

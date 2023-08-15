@@ -8,8 +8,8 @@ class CustomSyntaxFunctor(eons.Functor):
 
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True
-		this.enableRollback = False
-		this.enableAutoReturn = False
+		this.feature.rollback = False
+		this.feature.autoReturn = False
 
 	# Override this and do whatever!
 	# This is purposefully vague.

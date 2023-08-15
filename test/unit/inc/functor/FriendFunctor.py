@@ -5,7 +5,7 @@ class FriendFunctor(HelloFunctor):
 	def __init__(this, name="FriendFunctor"):
 		super().__init__(name)
 
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
 	# Override this and do whatever!
 	# This is purposefully vague.

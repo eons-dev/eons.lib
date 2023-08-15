@@ -4,11 +4,11 @@ class HelloFunctor(eons.StandardFunctor):
 	def __init__(this, name="HelloFunctor"):
 		super().__init__(name)
 
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
-		this.optionalKWArgs['say_hi_to'] = 'you'
+		this.arg.kw.optional['say_hi_to'] = 'you'
 
-		this.argMapping.append('say_hi_to')
+		this.arg.mapping.append('say_hi_to')
 
 	# Override this and do whatever!
 	# This is purposefully vague.

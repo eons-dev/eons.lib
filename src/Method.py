@@ -65,7 +65,7 @@ class Method(Functor):
 		super().__init__(name)
 
 		# Methods do not fetch from the environment by default.
-		this.fetchFrom.remove('environment')
+		this.fetch.use.remove('environment')
 
 		# Whether or not *this should be combined with other Methods of the same name.
 		this.inheritMethods = True
@@ -84,10 +84,10 @@ class Method(Functor):
 		# Plus, we can't exactly wrap 2 functions even if we wanted to Rollback.
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True
-		this.enableRollback = False
+		this.feature.rollback = False
 
 		# Methods,by default, do not return themselves.
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
 		# The source code of the function we're implementing.
 		this.source = ""
@@ -98,7 +98,7 @@ class Method(Functor):
 		this.original.cls.name = 'None'
 		this.original.function = None
 
-		this.argMapping = ['caller']
+		this.arg.mapping = ['caller']
 
 
 	# Make *this execute the code in this.source
@@ -141,13 +141,13 @@ def {wrappedFunctionName}(this):
 
 			else:
 				if (arg.default != inspect.Parameter.empty):
-					this.optionalKWArgs[arg.name] = arg.default
+					this.arg.kw.optional[arg.name] = arg.default
 				else:
-					this.requiredKWArgs.append(arg.name)
+					this.arg.kw.required.append(arg.name)
 				replaceWith = f'this.{arg.name}'
 
 				if (arg.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.POSITIONAL_ONLY]):
-					this.argMapping.append(arg.name)
+					this.arg.mapping.append(arg.name)
 
 			this.source = this.source.replace(arg.name, replaceWith)
 

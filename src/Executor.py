@@ -39,15 +39,17 @@ class Executor(DataContainer, Functor):
 
 		super().__init__(name)
 
-		this.optionalKWArgs['log_time_stardate'] = True
-		this.optionalKWArgs['log_indentation'] = True
-		this.optionalKWArgs['log_tab_width'] = 2
-		this.optionalKWArgs['log_aggregate'] = True
-		this.optionalKWArgs['log_aggregate_url'] = "https://eons.sh/log"
+		this.arg.kw.optional['log_time_stardate'] = True
+		this.arg.kw.optional['log_indentation'] = True
+		this.arg.kw.optional['log_tab_width'] = 2
+		this.arg.kw.optional['log_aggregate'] = True
+		this.arg.kw.optional['log_aggregate_url'] = "https://eons.sh/log"
 
 		# Executors should have control over their returns, if they have any.
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
+		# Error resolution settings
+		# DEPRECATED
 		this.resolveErrors = True
 		this.errorRecursionDepth = 0
 		this.errorResolutionStack = {}
@@ -59,6 +61,13 @@ class Executor(DataContainer, Functor):
 			'install_from_repo',
 			'install_with_pip'
 		]
+
+		# New style error resolution settings
+		this.error = util.DotDict()
+		this.error.resolvers = None
+		this.error.resolution = util.DotDict()
+		this.error.resolution.stack = {}
+		this.error.resolution.depth = 0
 
 		# Caching is required for Functor's staticKWArgs and other static features to be effective.
 		# This is used in Execute().
@@ -110,10 +119,22 @@ class Executor(DataContainer, Functor):
 		
 		# Defaults.
 		# You probably want to configure these in your own Executors.
-		this.defaultRepoDirectory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
 		this.registerDirectories = []
+
+		# DEPRECATED		
+		this.defaultRepoDirectory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
 		this.defaultConfigFile = None
 		this.defaultPackageType = ""
+
+		# New style defaults.
+		this.default = util.DotDict()
+		this.default.repo = util.DotDict()
+		this.default.repo.directory = None
+		this.default.package = util.DotDict()
+		this.default.package.type = None
+		this.default.config = util.DotDict()
+		this.default.config.files = None
+		this.default.config.extensions = None
 
 		# Allow the config file to be in multiple formats.
 		# These are in preference order (e.g. if you want to look for a .txt file before a .json, add it to the top of the list).
@@ -126,9 +147,20 @@ class Executor(DataContainer, Functor):
 		]
 
 		# We can't Fetch from everywhere while we're getting things going. However, these should be safe,
-		this.fetchFromDuringSetup = ['args', 'config', 'environment']
+		this.fetch.useDuringSetup = ['args', 'config', 'environment']
 
 		this.Configure()
+
+		# Compatibility shim for old style defaults
+		if (this.default.repo.directory is None):
+			this.default.repo.directory = this.defaultRepoDirectory
+		if (this.default.package.type is None):
+			this.default.package.type = this.defaultPackageType
+		if (this.default.config.files is None):
+			this.default.config.files = [this.defaultConfigFile]
+		if (this.default.config.extensions is None):
+			this.default.config.extensions = this.configFileExtensions
+
 		this.RegisterIncludedClasses()
 		this.AddArgs()
 		this.ResetPlacementSession()
@@ -162,8 +194,8 @@ class Executor(DataContainer, Functor):
 	# Configure class defaults.
 	# Override this to customize your Executor.
 	def Configure(this):
-		this.fetchFrom.remove('executor') # No no no no!
-		this.fetchFrom.remove('precursor') # Not applicable here.
+		this.fetch.use.remove('executor') # No no no no!
+		this.fetch.use.remove('precursor') # Not applicable here.
 
 		# Usually, Executors shunt work off to other Functors, so we leave these True unless a child needs to check its work.
 		this.functionSucceeded = True
@@ -280,7 +312,7 @@ class Executor(DataContainer, Functor):
 	# Thus, setting up the log file handler has to occur later than the initial SetupLogging call.
 	# Calling this multiple times will add multiple log handlers.
 	def SetLogFile(this):
-		this.Set('log_file', this.Fetch('log_file', None, this.fetchFromDuringSetup))
+		this.Set('log_file', this.Fetch('log_file', None, this.fetch.useDuringSetup))
 		if (this.log_file is None):
 			return
 
@@ -403,12 +435,13 @@ class Executor(DataContainer, Functor):
 		this.config = None
 		this.configType = None
 
-		if (this.parsedArgs.config is None and this.defaultConfigFile is not None):
-			for ext in this.configFileExtensions:
-				possibleConfig = f"{this.defaultConfigFile}.{ext}"
-				if (Path(possibleConfig).exists()):
-					this.parsedArgs.config = possibleConfig
-					break
+		if (this.parsedArgs.config is None):
+			for file in this.default.config.files:
+				for ext in this.default.config.extensions:
+					possibleConfig = f"{this.defaultConfigFile}.{ext}"
+					if (Path(possibleConfig).exists()):
+						this.parsedArgs.config = possibleConfig
+						break
 
 		logging.debug(f"Populating config from {this.parsedArgs.config}")
 
@@ -430,8 +463,8 @@ class Executor(DataContainer, Functor):
 	def PopulateRepoDetails(this):
 		details = {
 			"online": not this.Fetch('no_repo', False, ['this', 'args', 'config']),
-			"store": this.defaultRepoDirectory,
-			"registry": str(Path(this.defaultRepoDirectory).joinpath('registry').resolve()),
+			"store": this.default.repo.directory,
+			"registry": str(Path(this.default.repo.directory).joinpath('registry').resolve()),
 			"url": "https://api.infrastructure.tech/v1/package",
 			"username": None,
 			"password": None
@@ -456,7 +489,7 @@ class Executor(DataContainer, Functor):
 	def SetVerbosity(this, fetch=True):
 		if (fetch):
 			# Take the highest of -v vs --verbosity
-			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, this.fetchFromDuringSetup))
+			verbosity = this.EvaluateToType(this.Fetch('verbosity', 0, this.fetch.useDuringSetup))
 			if (verbosity > this.verbosity):
 				logging.debug(f"Setting verbosity to {verbosity}") # debug statements will be available when using external systems, like pytest.
 				this.verbosity = verbosity
@@ -520,7 +553,7 @@ class Executor(DataContainer, Functor):
 		logging.debug(f"Got config contents: {this.config}")
 		this.PopulateRepoDetails()
 		this.PopulateObservatoryDetails()
-		this.placement.max = this.Fetch('placement_max', 255, this.fetchFromDuringSetup)
+		this.placement.max = this.Fetch('placement_max', 255, this.fetch.useDuringSetup)
 
 
 	# Functor required method

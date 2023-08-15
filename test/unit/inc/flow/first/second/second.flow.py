@@ -5,8 +5,8 @@ class second(eons.Functor):
 		super().__init__(name)
 
 		this.functionSucceeded = True
-		this.enableRollback = False
-		this.enableAutoReturn = False
+		this.feature.rollback = False
+		this.feature.autoReturn = False
 
 	def Function(this):
 		return {"value": 2}

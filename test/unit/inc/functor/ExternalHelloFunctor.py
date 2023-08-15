@@ -5,7 +5,7 @@ class ExternalHelloFunctor(eons.StandardFunctor):
 		super().__init__(name)
 
 		this.functionSucceeded = True
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
 	@eons.method(impl="External")
 	def HelloFunctor(this):

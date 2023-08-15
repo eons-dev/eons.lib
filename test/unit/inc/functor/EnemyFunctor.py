@@ -4,11 +4,11 @@ class EnemyFunctor(eons.Functor):
 	def __init__(this, name="EnemyFunctor"):
 		super().__init__(name)
 
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 
-		this.requiredMethods.append('Hello')
+		this.method.requirements.append('Hello')
 
-		this.requiredKWArgs.append('enemy')
+		this.arg.kw.required.append('enemy')
 
 	# Override this and do whatever!
 	# This is purposefully vague.

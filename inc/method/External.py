@@ -8,7 +8,7 @@ class External(eons.Method):
 	def __init__(this, name="External Method"):
 		super().__init__(name)
 
-		this.enableRollback = False
+		this.feature.rollback = False
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True
 
@@ -28,10 +28,10 @@ class External(eons.Method):
 			raise eons.MissingMethodError(f"Could not populate external method {this.functorName} (type {this.type})")
 		
 		this.functor.name = f"{this.functor.name} (external)"
-		this.enableAutoReturn = this.functor.enableAutoReturn
+		this.feature.autoReturn = this.functor.enableAutoReturn
 
 		# To allow this.functor to be called with *args, we must also allow this to be called with *args (+ this).
-		this.argMapping += this.functor.argMapping
+		this.arg.mapping += this.functor.argMapping
 
 	def PopulateFrom(this, function):
 		this.functorName = function.__name__

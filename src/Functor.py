@@ -28,42 +28,84 @@ class Functor(Datum):
 	# Which function should be overridden when creating a @kind from *this.
 	primaryFunctionName = 'Function'
 
+	# How much backwards compatibility should be maintained.
+	# compatibility value is the lowest version of eons that this Functor is compatible with.
+	# Compatibility is usually handled in the Configure method.
+	compatibility = 2.0
+
 	def __init__(this, name=INVALID_NAME()):
 		super().__init__(name)
 
-		# Which method to call when executing *this through __call__.
-		this.callMethod = 'Function'
-		this.rollbackMethod = 'Rollback'
+		# All @methods.
+		# See Method.py for details.
+		# NOTE: Functor cannot have @methods, since it would create a circular dependency. However, all downstream children of Functor may.
+		this.methods = {}
 
+		# Settings for the methods of *this
+		this.method = util.DotDict()
+
+		# Which method to call when executing *this through __call__.
+		this.method.function = 'Function'
+		this.method.rollback = 'Rollback'
+		
+		# You probably don't need to change this.
+		# Similar to fetchFrom, methodSources lists where methods should be populated from and in what order
+		# Each entry is a key-value pair representing the accessible member (member's members okay) and whether or not to honor Method.propagate.
+		# If the value is False, all methods will be added to *this.methods and will overwrite any existing methods. Otherwise, only methods with propagate == True will be added and combined with existing methods. When in doubt, prefer True.
+		this.method.sources = {
+			'classMethods': False, # classMethods is created when a class uses @method()s
+			'precursor.methods': True
+		}
+
+		# Specify any methods / member functions you need here.
+		# *this will not be invoked unless these methods have been provided by a precursor.
+		this.method.requirements = []
+
+		# Internal var indicating whether or not Initialize has been called.
 		this.initialized = False
 
+		# The arguments provided to *this.
+		this.args = []
+		this.kwargs = {}
+
+		# The arguments *this takes.
+		this.arg = util.DotDict()
+		this.arg.kw = util.DotDict()
+
 		# All necessary args that *this cannot function without.
-		this.requiredKWArgs = []
+		this.arg.kw.required = []
 
 		# Static arguments are Fetched when *this is first called and never again.
 		# All static arguments are required.
-		this.staticKWArgs = []
-		this.staticArgsValid = False
+		this.arg.kw.static = []
+
+		# Mark args that meet the given requirements as valid.
+		# For now, only static args require a member variable.
+		this.arg.valid = util.DotDict()
+		this.arg.valid.static = False
 
 		# Because values can be Fetched from *this, values that should be provided in arguments will be ignored in favor of those Fetched by a previous call to *this.
 		# Thus, we can't enable 'this' when Fetching required or optional KWArgs (this is done for you in ValidateArgs)
 		# If you want an arg to be populated by a child's member, make it static.
 
 		# For optional args, supply the arg name as well as a default value.
-		this.optionalKWArgs = {}
+		this.arg.kw.optional = {}
 
 		# Instead of taking ...Args and ...KWArgs, we only take KWArgs.
 		# You can list ordered arguments here which will correspond with either required or optional KWArgs.
 		# If the arg you specify here does not exist in ...KWArgs, an error will be thrown.
 		# Use this to make calling your Functor easier (e.g. MyMethod('some value') vs MyMethod(my_value='some value'))
-		this.argMapping = []
+		this.arg.mapping = []
+
+		# Settings for dependency injection.
+		this.fetch = util.DotDict()
 
 		# Default places to Fetch from.
 		# Add to this list when extending Fetch().
 		# Remove from this list to restrict Fetching behavior.
 		# Reorder this list to make Fetch more efficient for your use case.
 		# Also see FetchWith and FetchWithout for ease-of-use methods.
-		this.fetchFrom = [
+		this.fetch.use = [
 			'this',
 			'args',
 			'globals',
@@ -78,40 +120,32 @@ class Functor(Datum):
 		# You can add your own {'from':this.customSearchMethod} pairs to fetchLocations by overriding PopulateFetchLocations().
 		# Alternatively, you may add to fetchLocations automatically by adding a fetchFrom entry and defining a method called f"fetch_location_{your new fetchFrom entry}(this, varName, default)".
 		# The order of fetchLocations does not matter; the order of each fetchFrom provided to Fetch() does. This allows users to set their preferred search order for maximum efficiency.
-		this.fetchLocations = {}
+		this.fetch.locations = {}
 
-		# All @methods.
-		# See Method.py for details.
-		# NOTE: Functor cannot have @methods, since it would create a circular dependency. However, all downstream children of Functor may.
-		this.methods = {}
-
-		# You probably don't need to change this.
-		# Similar to fetchFrom, methodSources lists where methods should be populated from and in what order
-		# Each entry is a key-value pair representing the accessible member (member's members okay) and whether or not to honor Method.propagate.
-		# If the value is False, all methods will be added to *this.methods and will overwrite any existing methods. Otherwise, only methods with propagate == True will be added and combined with existing methods. When in doubt, prefer True.
-		this.methodSources = {
-			'classMethods': False, # classMethods is created when a class uses @method()s
-			'precursor.methods': True
-		}
-
-		# Specify any methods / member functions you need here.
-		# *this will not be invoked unless these methods have been provided by a precursor.
-		this.requiredMethods = []
+		# System executables that *this depends on.
+		this.program = util.DotDict()
 
 		# All external dependencies *this relies on (binaries that can be found in PATH).
 		# These are treated as static args (see above).
-		this.requiredPrograms = []
+		this.program.required = []
 
-		# For converting config value names.
-		# e.g. "type": "projectType" makes it so that when calling Set("projectType", ...),  this.type is changed.
-		this.configNameOverrides = {}
+		# New style overrides.
+		this.override = util.DotDict()
+		this.override.config = {}
 
-		# Rolling back can be disabled by setting this to False.
-		this.enableRollback = True
-
+		# Feature flags.
+		# What can *this do?
+		this.feature = util.DotDict()
+		
 		# Automatically return this.
 		# Also enables partial function calls.
-		this.enableAutoReturn = True
+		this.feature.autoReturn = True
+
+		# Rolling back can be disabled by setting this to False.
+		this.feature.rollback = True
+
+		# Whether or not we should pass on exceptions when calls fail.
+		this.feature.raiseExceptions = True
 
 		# Allow partial function calls by marking *this as incomplete.
 		# Incomplete means that more arguments need to be provided.
@@ -125,9 +159,6 @@ class Functor(Datum):
 		this.result = util.DotDict()
 		this.result.code = 0
 		this.result.data = util.DotDict()
-
-		# Whether or not we should pass on exceptions when calls fail.
-		this.raiseExceptions = True
 
 		# Ease of use members
 		# These can be calculated in Function and Rollback, respectively.
@@ -149,8 +180,8 @@ class Functor(Datum):
 		this.next = []
 
 		# Callback method
-		this.callbacks = util.DotDict()
-		this.callbacks.fetch = None
+		this.callback = util.DotDict()
+		this.callback.fetch = None
 
 		this.abort = util.DotDict()
 		this.abort.WarmUp = False
@@ -204,12 +235,48 @@ class Functor(Datum):
 	def AfterRollback(this):
 		pass
 
+	
+	# Generic way to maintain backwards compatibility.
+	# Assume all defaults are set ahead of time.
+	def MapBackwards(this, newExpr, oldExpr):
+		try:
+			exec(f"this.{newExpr} = this.{oldExpr}")
+		except:
+			pass
+
+
+	# Allow use of old apis.
+	# This should be run once, during construction.
+	def SupportBackwardsCompatibility(this):
+		if (this.compatibility < 3):
+			v2Map = {
+				'method.call': 'callMethod',
+				'method.rollback': 'rollbackMethod',
+				'method.sources': 'methodSources',
+				'method.required': 'requiredMethods',
+				'arg.kw.required': 'requiredKWArgs',
+				'arg.kw.optional': 'optionalKWArgs',
+				'arg.kw.static': 'staticKWArgs',
+				'arg.valid.static': 'staticArgsValid',
+				'arg.mapping': 'argMapping',
+				'fetch.use': 'fetchFrom',
+				'fetch.locations': 'fetchLocations',
+				'program.dependencies': 'requiredPrograms',
+				'override.config': 'configNameOverrides',
+				'feature.autoReturn': 'enableAutoReturn',
+				'feature.rollback': 'enableRollback',
+				'feature.raiseExceptions': 'raiseExceptions',
+			}
+			for newExpr, oldExpr in v2Map.items():
+				this.MapBackwards(newExpr, oldExpr)
+
+
 	# Create a list of methods / member functions which will search different places for a variable.
 	# See the end of the file for examples of these methods.
 	def PopulateFetchLocations(this):
 		try:
-			for loc in this.fetchFrom:
-				this.fetchLocations.update({loc:getattr(this,f"fetch_location_{loc}")})
+			for loc in this.fetch.use:
+				this.fetch.locations.update({loc:getattr(this,f"fetch_location_{loc}")})
 		except:
 			# If the user didn't define fetch_location_{loc}(), that's okay. No need to complain
 			pass
@@ -274,7 +341,7 @@ class Functor(Datum):
 	# Wrapper around setattr
 	def Set(this, varName, value, evaluateExpressions=True):
 		value = this.EvaluateToType(value, evaluateExpressions)
-		for key, var in this.configNameOverrides.items():
+		for key, var in this.override.config.items():
 			if (varName == key):
 				varName = var
 				break
@@ -304,27 +371,27 @@ class Functor(Datum):
 		attempted.append(this.name)
 
 		if (fetchFrom is None):
-			fetchFrom = this.fetchFrom
+			fetchFrom = this.fetch.use
 
 		if (start):
 			logging.debug(f"Fetching {varName} from {fetchFrom}...")
 
 		for loc in fetchFrom:
-			if (loc not in this.fetchLocations.keys()):
+			if (loc not in this.fetch.locations.keys()):
 				# Maybe the location is meant for executor, precursor, etc.
 				continue
 
-			ret, found = this.fetchLocations[loc](varName, default, fetchFrom, attempted)
+			ret, found = this.fetch.locations[loc](varName, default, fetchFrom, attempted)
 			if (found):
 				logging.debug(f"...{this.name} got {varName} from {loc}.")
-				if (this.callbacks.fetch):
-					this.callbacks.fetch(varName = varName, location = loc, value = ret)
+				if (this.callback.fetch):
+					this.callback.fetch(varName = varName, location = loc, value = ret)
 				if (start):
 					return ret
 				return ret, True
 
-		if (this.callbacks.fetch):
-			this.callbacks.fetch(varName = varName, location = 'default', value = default)
+		if (this.callback.fetch):
+			this.callback.fetch(varName = varName, location = 'default', value = default)
 
 		if (start):
 			logging.debug(f"...{this.name} could not find {varName}; using default: {default}.")
@@ -336,22 +403,22 @@ class Functor(Datum):
 	# Ease of use method for Fetching while including certain search locations.
 	def FetchWith(this, doFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
-			currentFetchFrom = this.fetchFrom
+			currentFetchFrom = this.fetch.use
 		fetchFrom = list(set(currentFetchFrom + doFetchFrom))
 		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 	# Ease of use method for Fetching while excluding certain search locations.
 	def FetchWithout(this, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
-			currentFetchFrom = this.fetchFrom
-		fetchFrom = [f for f in this.fetchFrom if f not in dontFetchFrom]
+			currentFetchFrom = this.fetch.use
+		fetchFrom = [f for f in this.fetch.use if f not in dontFetchFrom]
 		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 	# Ease of use method for Fetching while including some search location and excluding others.
 	def FetchWithAndWithout(this, doFetchFrom, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
-			currentFetchFrom = this.fetchFrom
-		fetchFrom = [f for f in this.fetchFrom if f not in dontFetchFrom]
+			currentFetchFrom = this.fetch.use
+		fetchFrom = [f for f in this.fetch.use if f not in dontFetchFrom]
 		fetchFrom = list(set(fetchFrom + doFetchFrom))
 		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
@@ -367,10 +434,10 @@ class Functor(Datum):
 		for dedup in deduplicate:
 			setattr(this, dedup, list(dict.fromkeys(getattr(this, dedup))))
 
-		for arg in this.requiredKWArgs:
-			if (arg in this.optionalKWArgs.keys()):
+		for arg in this.arg.kw.required:
+			if (arg in this.arg.kw.optional.keys()):
 				logging.warning(f"Making required kwarg optional to remove duplicate: {arg}")
-				this.requiredKWArgs.remove(arg)
+				this.arg.kw.required.remove(arg)
 
 
 	# Populate all static details of *this.
@@ -381,7 +448,7 @@ class Functor(Datum):
 		this.PopulateFetchLocations()
 		this.RemoveDuplicateArgs()
 
-		for prog in this.requiredPrograms:
+		for prog in this.program.dependencies:
 			if (shutil.which(prog) is None):
 				raise FunctorError(f"{prog} required but not found in path.")
 
@@ -389,10 +456,10 @@ class Functor(Datum):
 
 	# Make sure all static args are valid.
 	def ValidateStaticArgs(this):
-		if (this.staticArgsValid):
+		if (this.arg.valid.static):
 			return
 
-		for skw in this.staticKWArgs:
+		for skw in this.arg.kw.static:
 			if (util.HasAttr(this, skw)): # only in the case of children.
 				continue
 
@@ -404,7 +471,7 @@ class Functor(Datum):
 			# Nope. Failed.
 			raise MissingArgumentError(f"Static key-word argument {skw} could not be Fetched.")
 
-		this.staticArgsValid = True
+		this.arg.valid.static = True
 
 
 	# Pull all propagating precursor methods into *this.
@@ -416,7 +483,7 @@ class Functor(Datum):
 
 		# We have to use util.___Attr() because some sources might have '.'s in them.
 
-		for source, honorPropagate in this.methodSources.items():
+		for source, honorPropagate in this.method.sources.items():
 			if (not util.HasAttr(this, source)):
 				logging.debug(f"Could not find {source}; will not pull in its methods.")
 				continue
@@ -486,19 +553,19 @@ class Functor(Datum):
 	# This is called before BeforeFunction(), below.
 	def ValidateArgs(this):
 		# logging.debug(f"this.kwargs: {this.kwargs}")
-		# logging.debug(f"required this.kwargs: {this.requiredKWArgs}")
+		# logging.debug(f"required this.kwargs: {this.arg.kw.required}")
 
-		if (len(this.args) > len(this.argMapping)):
-			raise MissingArgumentError(f"Too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.argMapping)}) {this.argMapping}")
-		argMap = dict(zip(this.argMapping[:len(this.args)], this.args))
+		if (len(this.args) > len(this.arg.mapping)):
+			raise MissingArgumentError(f"Too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.arg.mapping)}) {this.arg.mapping}")
+		argMap = dict(zip(this.arg.mapping[:len(this.args)], this.args))
 		logging.debug(f"Setting values from args: {argMap}")
 		for arg, value in argMap.items():
 			this.Set(arg, value)
 
 		#NOTE: In order for *this to be called multiple times, required and optional kwargs must always be fetched and not use stale data from *this.
 
-		if (this.requiredKWArgs):
-			for rkw in this.requiredKWArgs:
+		if (this.arg.kw.required):
+			for rkw in this.arg.kw.required:
 				if (rkw in argMap.keys()):
 					continue
 				
@@ -512,8 +579,8 @@ class Functor(Datum):
 				logging.error(f"{rkw} required but not found.")
 				raise MissingArgumentError(f"Key-word argument {rkw} could not be Fetched.")
 
-		if (this.optionalKWArgs):
-			for okw, default in this.optionalKWArgs.items():
+		if (this.arg.kw.optional):
+			for okw, default in this.arg.kw.optional.items():
 				if (okw in argMap.keys()):
 					continue
 
@@ -535,7 +602,7 @@ class Functor(Datum):
 	# Make sure that precursors have provided all necessary methods for *this.
 	# NOTE: these should not be static nor cached, as calling something else before *this will change the behavior of *this.
 	def ValidateMethods(this):
-		for method in this.requiredMethods:
+		for method in this.method.requirements:
 			if (util.HasAttr(this, method) and callable(util.GetAttr(this, method))):
 				continue
 
@@ -631,11 +698,11 @@ class Functor(Datum):
 		except Exception as e:
 
 			# Allow partial function calls
-			if (isinstance(e, MissingArgumentError) and this.enableAutoReturn):
+			if (isinstance(e, MissingArgumentError) and this.feature.autoReturn):
 				this.incomplete = True
 				return False
 			
-			if (this.raiseExceptions):
+			if (this.feature.raiseExceptions):
 				raise e
 			else:
 				logging.error(f"ERROR: {e}")
@@ -671,17 +738,17 @@ class Functor(Datum):
 			
 			logging.debug(f"{this.name}({this.args}, {this.kwargs})")
 
-			getattr(this, f"Before{this.callMethod}")()
-			ret = getattr(this, this.callMethod)()
+			getattr(this, f"Before{this.method.function}")()
+			ret = getattr(this, this.method.function)()
 
-			if (getattr(this, f"Did{this.callMethod}Succeed")()):
+			if (getattr(this, f"Did{this.method.function}Succeed")()):
 					this.result.code = 0
 					# logging.info(f"{this.name} successful!")
 					nextRet = this.CallNext()
-			elif (this.enableRollback):
+			elif (this.feature.rollback):
 				logging.warning(f"{this.name} failed. Attempting Rollback...")
-				ret = getattr(this, this.rollbackMethod)()
-				if (getattr(this, f"Did{this.rollbackMethod}Succeed")()):
+				ret = getattr(this, this.method.rollback)()
+				if (getattr(this, f"Did{this.method.rollback}Succeed")()):
 					this.result.code = 1
 					# logging.info(f"Rollback succeeded. All is well.")
 					nextRet = this.CallNext()
@@ -692,21 +759,21 @@ class Functor(Datum):
 				this.result.code = 3
 				logging.error(f"{this.name} failed.")
 
-			getattr(this, f"After{this.callMethod}")()
+			getattr(this, f"After{this.method.function}")()
 
 		except Exception as e:
-			if (this.raiseExceptions):
+			if (this.feature.raiseExceptions):
 				raise e
 			else:
 				logging.error(f"ERROR: {e}")
 				util.LogStack()
 
-		if (this.raiseExceptions and this.result.code > 1):
+		if (this.feature.raiseExceptions and this.result.code > 1):
 			raise FunctorError(f"{this.name} failed with result {this.result.code}: {this.result}")
 
 		if (nextRet is not None):
 			ret = nextRet
-		elif (this.enableAutoReturn):
+		elif (this.feature.autoReturn):
 			if (this.result.data is None):
 				this.result.data = ret
 			elif (not 'returned' in this.result.data):

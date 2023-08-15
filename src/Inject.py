@@ -7,13 +7,13 @@ import inspect
 class Inject(Functor):
 	def __init__(this, name = "Inject"):
 		super().__init__(name)
-		this.requiredKWArgs.append('target')
-		this.optionalKWArgs['impl'] = 'External'
+		this.arg.kw.required.append('target')
+		this.arg.kw.optional['impl'] = 'External'
 
-		this.argMapping.append('target')
-		this.argMapping.append('impl')
+		this.arg.mapping.append('target')
+		this.arg.mapping.append('impl')
 
-		this.enableAutoReturn = False
+		this.feature.autoReturn = False
 	
 	def Function(this):
 		# Prepare a dummy function to replace with a Method.
