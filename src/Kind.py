@@ -100,7 +100,8 @@ def kind(
 		# Constructor creation
 		constructorName = f"_eons_constructor_{kwargs['name']}"
 		constructorSource = f"def {constructorName}(this, name='{function.__name__}'):"
-		ctor.source.insert(0, f"super({base.__name__}, this).__init__(name)")
+		for b in bases:
+			ctor.source.insert(0, f"{b.__name__}.__init__(this, name)")
 		constructorSource += '\n\t' + '\n\t'.join(ctor.source)
 		if (len(ctor.additions)):
 			re.sub(r'^\s+', '\n', ctor.additions)

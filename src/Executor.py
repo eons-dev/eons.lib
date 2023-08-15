@@ -670,8 +670,7 @@ class Executor(DataContainer, Functor):
 
 		return True
 
-
-	@recoverable
+	# Use Constellatus to grab a SelfRegistering class.
 	def LocateStarCluster(this, starCluster):
 		if (not this.observatory.online):
 			logging.debug(f"Refusing to locate {starCluster}; we were told not to use an observatory.")

@@ -729,10 +729,15 @@ class Functor(Datum):
 		try:
 			this.__getattribute__(attribute)
 		except:
-			if (attribute in this.result.data):
-				return this.result.data[attribute]
-			else:
-				raise AttributeError(f"{this.name} has no attribute {attribute}")
+			try:
+				super().__getattr__(attribute)
+			except:
+				if ('result' not in this.__dict__ or 'name' not in this.__dict__):
+					raise AttributeError(f"{type(this).__name__} has no attribute {attribute}")
+				if (attribute in this.result.data):
+					return this.result.data[attribute]
+				else:
+					raise AttributeError(f"{this.name} has no attribute {attribute}")
 		#TODO: enable access of non existent members via the recovery machinery (e.g. this.retrievedViaTheNetwork.whatever)
 
 
