@@ -30,7 +30,7 @@ class Functor(Datum):
 
 	# How much backwards compatibility should be maintained.
 	# compatibility value is the lowest version of eons that this Functor is compatible with.
-	# Compatibility is usually handled in the Configure method.
+	# Compatibility is usually handled in the SupportBackwardsCompatibility method.
 	compatibility = 2.0
 
 	def __init__(this, name=INVALID_NAME()):
@@ -59,7 +59,7 @@ class Functor(Datum):
 
 		# Specify any methods / member functions you need here.
 		# *this will not be invoked unless these methods have been provided by a precursor.
-		this.method.requirements = []
+		this.method.required = []
 
 		# Internal var indicating whether or not Initialize has been called.
 		this.initialized = False
@@ -261,7 +261,7 @@ class Functor(Datum):
 				'arg.mapping': 'argMapping',
 				'fetch.use': 'fetchFrom',
 				'fetch.locations': 'fetchLocations',
-				'program.dependencies': 'requiredPrograms',
+				'program.required': 'requiredPrograms',
 				'override.config': 'configNameOverrides',
 				'feature.autoReturn': 'enableAutoReturn',
 				'feature.rollback': 'enableRollback',
@@ -427,12 +427,12 @@ class Functor(Datum):
 	# This prefers optional args to required args.
 	def RemoveDuplicateArgs(this):
 		deduplicate = [
-			'requiredKWArgs',
-			'requiredMethods',
-			'requiredPrograms'
+			'arg.kw.required',
+			'method.required',
+			'program.required'
 		]
 		for dedup in deduplicate:
-			setattr(this, dedup, list(dict.fromkeys(getattr(this, dedup))))
+			exec(f"this.{dedup} = list(dict.fromkeys(this.{dedup}))")
 
 		for arg in this.arg.kw.required:
 			if (arg in this.arg.kw.optional.keys()):
@@ -444,11 +444,13 @@ class Functor(Datum):
 	def Initialize(this):
 		if (this.initialized):
 			return
+		
+		this.SupportBackwardsCompatibility()
 
 		this.PopulateFetchLocations()
 		this.RemoveDuplicateArgs()
 
-		for prog in this.program.dependencies:
+		for prog in this.program.required:
 			if (shutil.which(prog) is None):
 				raise FunctorError(f"{prog} required but not found in path.")
 
@@ -519,7 +521,7 @@ class Functor(Datum):
 					this.methods[method.name].UpdateSource()
 
 		for method in this.methods.values():
-			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.requiredKWArgs] + [a+'='+str(v) for a,v in method.optionalKWArgs.items()])})")
+			logging.debug(f"Populating method {this.name}.{method.name}({', '.join([a for a in method.arg.kw.required] + [a+'='+str(v) for a,v in method.arg.kw.optional.items()])})")
 
 			# Python < 3.11
 			# setattr(this, method.name, method.__call__.__get__(this, this.__class__))
@@ -602,7 +604,7 @@ class Functor(Datum):
 	# Make sure that precursors have provided all necessary methods for *this.
 	# NOTE: these should not be static nor cached, as calling something else before *this will change the behavior of *this.
 	def ValidateMethods(this):
-		for method in this.method.requirements:
+		for method in this.method.required:
 			if (util.HasAttr(this, method) and callable(util.GetAttr(this, method))):
 				continue
 
@@ -797,7 +799,7 @@ class Functor(Datum):
 			this.__getattribute__(attribute)
 		except:
 			try:
-				super().__getattr__(attribute)
+				return this.__dict__[attribute]
 			except:
 				if ('result' not in this.__dict__ or 'name' not in this.__dict__):
 					raise AttributeError(f"{type(this).__name__} has no attribute {attribute}")

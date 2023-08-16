@@ -89,7 +89,7 @@ class ErrorResolution(StandardFunctor):
 
 	# Get the type of this.error as a string.
 	def GetErrorType(this):
-		return type(this.error).__name__
+		return type(this.error.object).__name__
 
 
 	# Get an actionable object from the error.
@@ -102,7 +102,7 @@ class ErrorResolution(StandardFunctor):
 			this.error.subject = parser.Parse(this.error.string)
 			return
 
-		raise ErrorResolutionError(f"{this.name} cannot parse error object from ({this.error.type}): {str(this.error)}.")
+		raise ErrorResolutionError(f"{this.name} cannot parse error object from ({this.error.type}): {str(this.error.object)}.")
 
 
 	# Determine if this resolution method is applicable.
@@ -114,12 +114,12 @@ class ErrorResolution(StandardFunctor):
 	def ParseInitialArgs(this):
 		super().ParseInitialArgs()
 		if ('error' in this.kwargs):
-			this.error = this.kwargs.pop('error')
+			this.error.object = this.kwargs.pop('error')
 			# Just assume the error is an actual Exception object.
 		else:
 			raise ErrorResolutionError(f"{this.name} was not given an error to resolve.")
 
-		this.error.string = str(this.error)
+		this.error.string = str(this.error.object)
 		this.error.type = this.GetErrorType()
 
 		# Internal member to avoid processing duplicates

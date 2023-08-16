@@ -6,7 +6,7 @@ class EnemyFunctor(eons.Functor):
 
 		this.feature.autoReturn = False
 
-		this.method.requirements.append('Hello')
+		this.method.required.append('Hello')
 
 		this.arg.kw.required.append('enemy')
 

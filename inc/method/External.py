@@ -18,7 +18,7 @@ class External(eons.Method):
 
 	def UpdateSource(this):
 		if (not this.type):
-			this.type = eons.ExecutorTracker.GetLatest().this.default.package.type
+			this.type = eons.ExecutorTracker.GetLatest().default.package.type
 		try:
 			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type, namespace = this.caller.name)
 		except:
@@ -28,10 +28,10 @@ class External(eons.Method):
 			raise eons.MissingMethodError(f"Could not populate external method {this.functorName} (type {this.type})")
 		
 		this.functor.name = f"{this.functor.name} (external)"
-		this.feature.autoReturn = this.functor.enableAutoReturn
+		this.feature = this.functor.feature
 
 		# To allow this.functor to be called with *args, we must also allow this to be called with *args (+ this).
-		this.arg.mapping += this.functor.argMapping
+		this.arg.mapping += this.functor.arg.mapping
 
 	def PopulateFrom(this, function):
 		this.functorName = function.__name__

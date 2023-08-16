@@ -34,7 +34,7 @@ class namespace_lookup(eons.ErrorResolution):
 			try:
 				requested = this.GetExecutor().GetRegistered(
 					this.error.subject,
-					packageType = this.executor.this.default.package.type,
+					packageType = this.executor.default.package.type,
 					namespace = ns)
 			except:
 				continue

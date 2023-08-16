@@ -12,4 +12,4 @@ class install_from_repo_with_default_package_type(eons.ErrorResolution):
 		this.ApplyTo('NameError', "name 'SUBJECT' is not defined")
 
 	def Resolve(this):
-		this.error.resolution.successful = this.executor.DownloadPackage(f"{this.error.subject}.{this.executor.this.default.package.type}")
+		this.error.resolution.successful = this.executor.DownloadPackage(f"{this.error.subject}.{this.executor.default.package.type}")

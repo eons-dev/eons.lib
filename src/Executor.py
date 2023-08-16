@@ -63,7 +63,7 @@ class Executor(DataContainer, Functor):
 			'install_with_pip'
 		]
 
-		# Caching is required for Functor's staticKWArgs and other static features to be effective.
+		# Caching is required for Functor's arg.kw.static and other static features to be effective.
 		# This is used in Execute().
 		this.cache = util.DotDict()
 		this.cache.functors = {}
@@ -155,30 +155,34 @@ class Executor(DataContainer, Functor):
 
 		this.Configure()
 		this.RegisterIncludedClasses()
+		this.argparser = this.arg.parser # For backwards compatibility.
 		this.AddArgs()
 		this.ResetPlacementSession()
 
 
 	def SupportBackwardsCompatibility(this):
-		v2Map = {
-			'error.resolve': 'resolveErrors',
-			'error.resolvers': 'resolveErrorsWith',
-			'error.resolution.stack': 'errorResolutionStack',
-			'error.resolution.depth': 'errorRecursionDepth',
-			'cache.functors': 'cachedFunctors',
-			'arg.parser': 'argParser',
-			'log.file': 'log_file',
-			'default.register.directories': 'this.default.register.directories',
-			'default.repo.directory': 'this.default.repo.directory',
-			'default.package.type': 'this.default.package.type',
-			'default.config.files': 'defaultConfigFile',
-			'default.config.extensions': 'configFileExtensions',
-		}
-		for newExpr, oldExpr in v2Map.items():
-			this.MapBackwards(newExpr, oldExpr)
-		
-		if (type(this.config.files) is not list):
-			this.default.config.files = [this.config.files]
+		super().SupportBackwardsCompatibility()
+		if (this.compatibility < 3):
+			v2Map = {
+				'error.resolve': 'resolveErrors',
+				'error.resolvers': 'resolveErrorsWith',
+				'error.resolution.stack': 'errorResolutionStack',
+				'error.resolution.depth': 'errorRecursionDepth',
+				'cache.functors': 'cachedFunctors',
+				'arg.parser': 'argParser',
+				'log.file': 'log_file',
+				'default.register.directories': 'registerDirectories',
+				'default.repo.directory': 'defaultRepoDirectory',
+				'default.package.type': 'defaultPackageType',
+				'default.config.files': 'defaultConfigFile',
+				'default.config.extensions': 'configFileExtensions',
+			}
+			for newExpr, oldExpr in v2Map.items():
+				this.MapBackwards(newExpr, oldExpr)
+			
+			if (type(this.default.config.files) is not list):
+				this.default.config.files = [this.default.config.files]
+
 
 	# Destructors do not work reliably in python.
 	# NOTE: you CANNOT delete *this without first Pop()ing it from the ExecutorTracker.
@@ -220,7 +224,7 @@ class Executor(DataContainer, Functor):
 	# Add a place to search for SelfRegistering classes.
 	# These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
 	def RegisterDirectory(this, directory):
-		this.this.default.register.directories.append(os.path.abspath(os.path.join(this.cwd,directory)))
+		this.default.register.directories.append(os.path.abspath(os.path.join(this.cwd,directory)))
 
 
 	# Global logging config.
@@ -258,7 +262,7 @@ class Executor(DataContainer, Functor):
 				if (hasattr(logging.getLogger(), 'setupBy')):
 					executor = getattr(logging.getLogger(), 'setupBy')
 
-					# The executor won't have populated its optionalKWArgs until after this method is effected.
+					# The executor won't have populated its arg.kw.optional until after this method is effected.
 					# So we wait until the last optional arg is set to start using the executor.
 					if (not hasattr(executor, 'log_aggregate_url')):
 						executor = None
@@ -330,12 +334,12 @@ class Executor(DataContainer, Functor):
 		if (this.log.file is None):
 			return
 
-		log_filePath = Path(this.log.file).resolve()
-		if (not log_filePath.exists()):
-			log_filePath.parent.mkdir(parents=True, exist_ok=True)
-			log_filePath.touch()
+		logFilePath = Path(this.log.file).resolve()
+		if (not logFilePath.exists()):
+			logFilePath.parent.mkdir(parents=True, exist_ok=True)
+			logFilePath.touch()
 
-		this.log.file = str(log_filePath) # because resolve() is nice.
+		this.log.file = str(logFilePath) # because resolve() is nice.
 		logging.info(f"Will log to {this.log.file}")
 
 		logFormatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)')
@@ -348,12 +352,12 @@ class Executor(DataContainer, Functor):
 	# Adds command line arguments.
 	# Override this method to change. Optionally, call super().AddArgs() within your method to simply add to this list.
 	def AddArgs(this):
-		this.argparser.add_argument('--verbose', '-v', action='count', default=0)
-		this.argparser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
+		this.arg.parser.add_argument('--verbose', '-v', action='count', default=0)
+		this.arg.parser.add_argument('--config', '-c', type=str, default=None, help='Path to configuration file containing only valid JSON.', dest='config')
 
 		# We'll use Fetch instead
-		# this.argparser.add_argument('--log', '-l', type=str, default=None, help='Path to log file.', dest='log')
-		# this.argparser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
+		# this.arg.parser.add_argument('--log', '-l', type=str, default=None, help='Path to log file.', dest='log')
+		# this.arg.parser.add_argument('--no-repo', action='store_true', default=False, help='prevents searching online repositories', dest='no_repo')
 
 
 	# End the current placement session (if any)
@@ -424,9 +428,9 @@ class Executor(DataContainer, Functor):
 		pass
 
 
-	# Register all classes in each directory in this.this.default.register.directories
+	# Register all classes in each directory in this.default.register.directories
 	def RegisterAllClasses(this):
-		for d in this.this.default.register.directories:
+		for d in this.default.register.directories:
 			this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
 		this.RegisterAllClassesInDirectory(this.repo.registry)
 
@@ -530,7 +534,9 @@ class Executor(DataContainer, Functor):
 	# Extra arguments are converted from --this-format to this_format, without preceding dashes. For example, --repo-url ... becomes repo_url ...
 	# NOTE: YOU CANNOT USE @recoverable METHODS HERE!
 	def ParseArgs(this):
-		this.parsedArgs, extraArgs = this.argparser.parse_known_args()
+		# Compatibility is a lie, this doesn't work.
+		# compatibleArgParser = argparse.ArgumentParser(parents=[this.arg.parser, this.argparser])
+		this.parsedArgs, extraArgs = this.arg.parser.parse_known_args()
 
 		this.verbosity = this.parsedArgs.verbose
 
@@ -617,19 +623,19 @@ class Executor(DataContainer, Functor):
 	def Execute(this, functor, *args, **kwargs):
 		if (isinstance(functor, str)):
 			functorName = functor
-			packageType = this.this.default.package.type
+			packageType = this.default.package.type
 			if ('packageType' in kwargs):
 				packageType = kwargs.pop('packageType')
 
-			if (functorName in this.cachedFunctors):
-				functor = this.cachedFunctors[functorName]
+			if (functorName in this.cache.functors):
+				functor = this.cache.functors[functorName]
 			else:
 				functor = this.GetRegistered(functorName, packageType)
 		else:
 			functorName = functor.name
 
 		logging.debug(f"Executing {functorName}({', '.join([str(a) for a in args] + [k+'='+str(v) for k,v in kwargs.items()])})")
-		this.cachedFunctors.update({functorName: functor})
+		this.cache.functors.update({functorName: functor})
 		return functor(*args, **kwargs, executor=this)
 
 
