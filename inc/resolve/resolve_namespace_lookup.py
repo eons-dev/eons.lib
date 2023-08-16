@@ -8,15 +8,15 @@ class namespace_lookup(eons.ErrorResolution):
 	def __init__(this, name="namespace_lookup"):
 		super().__init__(name)
 
-		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
-		this.ApplyTo('AttributeError', "'NameError' object has no attribute 'OBJECT'")
+		this.ApplyTo('NameError', "name 'SUBJECT' is not defined")
+		this.ApplyTo('AttributeError', "'NameError' object has no attribute 'SUBJECT'")
 
 	def Resolve(this):
 		requested = None
 		
 		for i in range(eons.FunctorTracker.GetCount()):
 			ns = eons.FunctorTracker.GetCurrentNamespace(i)
-			namespacedObjectName = ns.ToName() + this.errorObject
+			namespacedObjectName = ns.ToName() + this.error.subject
 
 			# Module was already registered, just inject it.
 			if (namespacedObjectName in sys.modules.keys()):
@@ -26,24 +26,24 @@ class namespace_lookup(eons.ErrorResolution):
 					sys.modules[namespacedObjectName]
 				)
 				# Create the symbol as an instance of the namespaced module's class.
-				this.executor.SetGlobal(this.errorObject, getattr(sys.modules[namespacedObjectName], this.errorObject)())
-				this.errorShouldBeResolved = True
+				this.executor.SetGlobal(this.error.subject, getattr(sys.modules[namespacedObjectName], this.error.subject)())
+				this.error.resolution.successful = True
 				return
 			
 			# Maybe we can download it???
 			try:
 				requested = this.GetExecutor().GetRegistered(
-					this.errorObject,
-					packageType = this.executor.defaultPackageType,
+					this.error.subject,
+					packageType = this.executor.this.default.package.type,
 					namespace = ns)
 			except:
 				continue
 		
 		if (not requested):
-			this.errorShouldBeResolved = False
+			this.error.resolution.successful = False
 			return
 		
 		# We don't know the module, but we have the object.
-		this.executor.SetGlobal(this.errorObject, requested)
-		this.errorShouldBeResolved = eons.util.HasAttr(builtins, this.errorObject)
+		this.executor.SetGlobal(this.error.subject, requested)
+		this.error.resolution.successful = eons.util.HasAttr(builtins, this.error.subject)
 

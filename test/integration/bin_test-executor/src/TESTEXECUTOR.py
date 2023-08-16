@@ -6,7 +6,7 @@ class TESTEXECUTOR(e.Executor):
 
 	def __init__(this):
 
-		super().__init__(name="test executor", descriptionStr="TESTING ONLY")
+		super().__init__(name="test executor", description="TESTING ONLY")
 
 	#Override of eons.Executor method. See that class for details
 	def Configure(this):

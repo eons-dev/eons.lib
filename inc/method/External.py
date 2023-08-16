@@ -18,7 +18,7 @@ class External(eons.Method):
 
 	def UpdateSource(this):
 		if (not this.type):
-			this.type = eons.ExecutorTracker.GetLatest().defaultPackageType
+			this.type = eons.ExecutorTracker.GetLatest().this.default.package.type
 		try:
 			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type, namespace = this.caller.name)
 		except:

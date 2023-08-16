@@ -5,7 +5,7 @@ from .Exceptions import *
 from .StandardFunctor import StandardFunctor
 from .Utils import util
 
-# Use an ErrorStringParser for each "parsers" in order to avoid having to override the GetObjectFromError method and create a new class for every error you want to handle.
+# Use an ErrorStringParser for each "parsers" in order to avoid having to override the GetSubjectFromError method and create a new class for every error you want to handle.
 # ErrorStringParsers enable ErrorResolutions to be created on a per-functionality, rather than per-error basis, reducing the total amount of duplicate code.
 # Each error has a different string. In order to get the object of the error, we have to know where the object starts and ends.
 # NOTE: this assumes only 1 object per string. Maybe fancier parsing logic can be added in the future.
@@ -36,11 +36,14 @@ class ErrorResolution(StandardFunctor):
 		# What errors, as ErrorStringParser objects, is *this prepared to handle?
 		this.parsers = []
 
-		this.error = None
-		this.errorType = ""
-		this.errorString = ""
-		this.errorObject = ""
-		this.errorResolutionStack = {}
+		this.error = util.DotDict()
+		this.error.object = None
+		this.error.type = ""
+		this.error.string = ""
+		this.error.subject = ""
+		this.error.resolution = util.DotDict()
+		this.error.resolution.successful = False
+		this.error.resolution.stack = {}
 
 		# Provided directly from the recoverable decorator.
 		this.arg.kw.optional["obj"] = None
@@ -50,21 +53,19 @@ class ErrorResolution(StandardFunctor):
 		# So, let's store that in functionSucceeded. Meaning if this.functionSucceeded, try the original method again.
 		# No rollback, by default and definitely don't throw Exceptions.
 		this.feature.rollback = False
-		this.functionSucceeded = True
 		this.feature.raiseExceptions = False
-
-		this.errorShouldBeResolved = False
-
 		this.feature.autoReturn = False
+		this.functionSucceeded = True
 
+		this.functionSucceeded = True
 
 	# Put your logic here!
 	def Resolve(this):
 		# You get the following members:
 		# this.error (an Exception)
-		# this.errorString (a string cast of the Exception)
-		# this.errorType (a string)
-		# this.errorObjet (a string or whatever you return from GetObjectFromError())
+		# this.error.string (a string cast of the Exception)
+		# this.error.type (a string)
+		# this.error.subject (a string or whatever you return from GetSubjectFromError())
 
 		# You get the following guarantees:
 		# *this has not been called on this particular error before.
@@ -72,7 +73,7 @@ class ErrorResolution(StandardFunctor):
 
 		###############################################
 		# Please throw errors if something goes wrong #
-		# Otherwise, set this.errorShouldBeResolved   #
+		# Otherwise, set this.error.resolution.successful   #
 		###############################################
 		
 		pass
@@ -80,9 +81,9 @@ class ErrorResolution(StandardFunctor):
 
 
 	# Helper method for creating ErrorStringParsers
-	# To use this, simply take an example output and replace the object you want to extract with "OBJECT"
+	# To use this, simply take an example output and replace the object you want to extract with "SUBJECT"
 	def ApplyTo(this, error, exampleString):
-		match = re.search('OBJECT', exampleString)
+		match = re.search('SUBJECT', exampleString)
 		this.parsers.append(ErrorStringParser(error, match.start(), match.end() - len(exampleString)))
 
 
@@ -93,15 +94,15 @@ class ErrorResolution(StandardFunctor):
 
 	# Get an actionable object from the error.
 	# For example, if the error is 'ModuleNotFoundError', what is the module?
-	def GetObjectFromError(this):
+	def GetSubjectFromError(this):
 		for parser in this.parsers:
-			if (parser.applicableError != this.errorType):
+			if (parser.applicableError != this.error.type):
 				continue
 
-			this.errorObject = parser.Parse(this.errorString)
+			this.error.subject = parser.Parse(this.error.string)
 			return
 
-		raise ErrorResolutionError(f"{this.name} cannot parse error object from ({this.errorType}): {str(this.error)}.")
+		raise ErrorResolutionError(f"{this.name} cannot parse error object from ({this.error.type}): {str(this.error)}.")
 
 
 	# Determine if this resolution method is applicable.
@@ -118,11 +119,11 @@ class ErrorResolution(StandardFunctor):
 		else:
 			raise ErrorResolutionError(f"{this.name} was not given an error to resolve.")
 
-		this.errorString = str(this.error)
-		this.errorType = this.GetErrorType()
+		this.error.string = str(this.error)
+		this.error.type = this.GetErrorType()
 
 		# Internal member to avoid processing duplicates
-		this.errorResolutionStack = this.executor.errorResolutionStack
+		this.error.resolution.stack = this.executor.error.resolution.stack
 
 
 	# Error resolution is unchained.
@@ -134,19 +135,19 @@ class ErrorResolution(StandardFunctor):
 	# We'll keep calling this until an error is raised.
 	def Function(this):
 		this.functionSucceeded = True
-		this.errorShouldBeResolved = True
+		this.error.resolution.successful = True
 		
 		if (not this.CanProcess()):
-			this.errorShouldBeResolved = False
-			return this.errorResolutionStack, this.errorShouldBeResolved
+			this.error.resolution.successful = False
+			return this.error.resolution.stack, this.error.resolution.successful
 
-		if (not this.errorString in this.errorResolutionStack.keys()):
-			this.errorResolutionStack.update({this.errorString:[]})
+		if (not this.error.string in this.error.resolution.stack.keys()):
+			this.error.resolution.stack.update({this.error.string:[]})
 		
-		if (this.name in this.errorResolutionStack[this.errorString]):
-			raise FailedErrorResolution(f"{this.name} already tried and failed to resolve {this.errorType}: {this.errorString}.")
+		if (this.name in this.error.resolution.stack[this.error.string]):
+			raise FailedErrorResolution(f"{this.name} already tried and failed to resolve {this.error.type}: {this.error.string}.")
 
-		this.GetObjectFromError()
+		this.GetSubjectFromError()
 
 		try:
 			this.Resolve()
@@ -155,5 +156,5 @@ class ErrorResolution(StandardFunctor):
 			util.LogStack()
 			this.functionSucceeded = False
 		
-		this.errorResolutionStack[this.errorString].append(this.name)
-		return this.errorResolutionStack, this.errorShouldBeResolved
+		this.error.resolution.stack[this.error.string].append(this.name)
+		return this.error.resolution.stack, this.error.resolution.successful

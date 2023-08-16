@@ -34,7 +34,7 @@ from .Namespace import Namespace
 # NOTE: Diamond inheritance of Datum.
 class Executor(DataContainer, Functor):
 
-	def __init__(this, name=INVALID_NAME(), descriptionStr="Eons python framework. Extend as thou wilt."):
+	def __init__(this, name=INVALID_NAME(), description="Eons python framework. Extend as thou wilt."):
 		this.SetupLogging()
 
 		super().__init__(name)
@@ -49,11 +49,12 @@ class Executor(DataContainer, Functor):
 		this.feature.autoReturn = False
 
 		# Error resolution settings
-		# DEPRECATED
-		this.resolveErrors = True
-		this.errorRecursionDepth = 0
-		this.errorResolutionStack = {}
-		this.resolveErrorsWith = [ # order matters: FIFO (first is first).
+		this.error = util.DotDict()
+		this.error.resolve = True
+		this.error.depth = 0
+		this.error.resolution = util.DotDict()
+		this.error.resolution.stack = {}
+		this.error.resolvers = [ # order matters: FIFO (first is first).
 			'find_by_fetch',
 			'import_module',
 			'namespace_lookup',
@@ -62,30 +63,24 @@ class Executor(DataContainer, Functor):
 			'install_with_pip'
 		]
 
-		# New style error resolution settings
-		this.error = util.DotDict()
-		this.error.resolvers = None
-		this.error.resolution = util.DotDict()
-		this.error.resolution.stack = {}
-		this.error.resolution.depth = 0
-
 		# Caching is required for Functor's staticKWArgs and other static features to be effective.
 		# This is used in Execute().
-		this.cachedFunctors = {}
+		this.cache = util.DotDict()
+		this.cache.functors = {}
 
 		# General system info
 		this.cwd = os.getcwd()
-		this.syspath = sys.path  # not used atm.
+		this.syspath = sys.path
 
 		# CLI (or otherwise) args
-		this.argparser = argparse.ArgumentParser(description = descriptionStr)
+		this.arg.parser = argparse.ArgumentParser(description = description)
 		this.parsedArgs = None
 		this.extraArgs = None
 		
 		# How much information should we output?
 		this.verbosity = 0
 
-		# config is loaded with the contents of a JSON config file specified by --config / -c or by the defaultConfigFile location, below.
+		# config is loaded with the contents of a JSON config file specified by --config / -c or by the default.config.files location, below.
 		this.config = None
 		this.configType = None
 
@@ -98,12 +93,15 @@ class Executor(DataContainer, Functor):
 		# The globalContextKey is mainly used for big, nested configs.
 		# It serves as a means of leaving the name of various global values intact while changing their values.
 		# For example, a method of some Functor might check service.name, but we might have a service for mysql, redis, etc. In this situation, we can say SetGlobalContextKey('mysql') and the Functor will operate on the mysql.service.name. Then, when we're ready, we SetGlobalContextKey('redis') and call the same Functor again to operate on the redis.service.name.
-		# Thus, the globalContextKey allow those using global variables to remain naive of where those values are comming from.
+		# Thus, the globalContextKey allow those using global variables to remain naive of where those values are coming from.
 		this.globalContextKey = None
 
+		# Logging settings.
+		this.log = util.DotDict()
+		
 		# Where should we log to?
 		# Set by Fetch('log_file')
-		this.log_file = None
+		this.log.file = None
 
 		# All repository configuration.
 		this.repo = util.DotDict()
@@ -119,27 +117,33 @@ class Executor(DataContainer, Functor):
 		
 		# Defaults.
 		# You probably want to configure these in your own Executors.
-		this.registerDirectories = []
-
-		# DEPRECATED		
-		this.defaultRepoDirectory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
-		this.defaultConfigFile = None
-		this.defaultPackageType = ""
-
-		# New style defaults.
 		this.default = util.DotDict()
+
+		# Default registration settings.
+		this.default.register = util.DotDict()
+		
+		# What directories should load when booting up?
+		this.default.register.directories = []
+
+		# Default repo settings.
+		# See PopulateRepoDetails for more info.
 		this.default.repo = util.DotDict()
-		this.default.repo.directory = None
+		this.default.repo.directory = os.path.abspath(os.path.join(os.getcwd(), "./eons/"))
+
+		# Package retrieval settings.
 		this.default.package = util.DotDict()
-		this.default.package.type = None
+		this.default.package.type = ""
+
+		# Configuration ingestion settings.
 		this.default.config = util.DotDict()
-		this.default.config.files = None
-		this.default.config.extensions = None
+		
+		# What files should we look for when loading config?
+		this.default.config.files = ['config']
 
 		# Allow the config file to be in multiple formats.
 		# These are in preference order (e.g. if you want to look for a .txt file before a .json, add it to the top of the list).
 		# Precedence should prefer more structured and machine-generated configs over file formats easier for humans to work with.
-		this.configFileExtensions = [
+		this.default.config.extensions = [
 			"json",
 			"yaml",
 			"yml",
@@ -150,21 +154,31 @@ class Executor(DataContainer, Functor):
 		this.fetch.useDuringSetup = ['args', 'config', 'environment']
 
 		this.Configure()
-
-		# Compatibility shim for old style defaults
-		if (this.default.repo.directory is None):
-			this.default.repo.directory = this.defaultRepoDirectory
-		if (this.default.package.type is None):
-			this.default.package.type = this.defaultPackageType
-		if (this.default.config.files is None):
-			this.default.config.files = [this.defaultConfigFile]
-		if (this.default.config.extensions is None):
-			this.default.config.extensions = this.configFileExtensions
-
 		this.RegisterIncludedClasses()
 		this.AddArgs()
 		this.ResetPlacementSession()
 
+
+	def SupportBackwardsCompatibility(this):
+		v2Map = {
+			'error.resolve': 'resolveErrors',
+			'error.resolvers': 'resolveErrorsWith',
+			'error.resolution.stack': 'errorResolutionStack',
+			'error.resolution.depth': 'errorRecursionDepth',
+			'cache.functors': 'cachedFunctors',
+			'arg.parser': 'argParser',
+			'log.file': 'log_file',
+			'default.register.directories': 'this.default.register.directories',
+			'default.repo.directory': 'this.default.repo.directory',
+			'default.package.type': 'this.default.package.type',
+			'default.config.files': 'defaultConfigFile',
+			'default.config.extensions': 'configFileExtensions',
+		}
+		for newExpr, oldExpr in v2Map.items():
+			this.MapBackwards(newExpr, oldExpr)
+		
+		if (type(this.config.files) is not list):
+			this.default.config.files = [this.config.files]
 
 	# Destructors do not work reliably in python.
 	# NOTE: you CANNOT delete *this without first Pop()ing it from the ExecutorTracker.
@@ -178,17 +192,17 @@ class Executor(DataContainer, Functor):
 		return this
 
 
-	# this.errorResolutionStack are whatever we've tried to do to fix whatever our problem is.
+	# this.error.resolution.stack are whatever we've tried to do to fix whatever our problem is.
 	# This method resets our attempts to remove stale data.
 	def ClearErrorResolutionStack(this, force=False):
 		if (force):
-			this.errorRecursionDepth = 0
+			this.error.depth = 0
 
-		if (this.errorRecursionDepth):
-			this.errorRecursionDepth = this.errorRecursionDepth - 1
+		if (this.error.depth):
+			this.error.depth = this.error.depth - 1
 
-		if (not this.errorRecursionDepth):
-			this.errorResolutionStack = {}
+		if (not this.error.depth):
+			this.error.resolution.stack = {}
 
 
 	# Configure class defaults.
@@ -206,7 +220,7 @@ class Executor(DataContainer, Functor):
 	# Add a place to search for SelfRegistering classes.
 	# These should all be relative to the invoking working directory (i.e. whatever './' is at time of calling Executor())
 	def RegisterDirectory(this, directory):
-		this.registerDirectories.append(os.path.abspath(os.path.join(this.cwd,directory)))
+		this.this.default.register.directories.append(os.path.abspath(os.path.join(this.cwd,directory)))
 
 
 	# Global logging config.
@@ -313,19 +327,19 @@ class Executor(DataContainer, Functor):
 	# Calling this multiple times will add multiple log handlers.
 	def SetLogFile(this):
 		this.Set('log_file', this.Fetch('log_file', None, this.fetch.useDuringSetup))
-		if (this.log_file is None):
+		if (this.log.file is None):
 			return
 
-		log_filePath = Path(this.log_file).resolve()
+		log_filePath = Path(this.log.file).resolve()
 		if (not log_filePath.exists()):
 			log_filePath.parent.mkdir(parents=True, exist_ok=True)
 			log_filePath.touch()
 
-		this.log_file = str(log_filePath) # because resolve() is nice.
-		logging.info(f"Will log to {this.log_file}")
+		this.log.file = str(log_filePath) # because resolve() is nice.
+		logging.info(f"Will log to {this.log.file}")
 
 		logFormatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)s)')
-		fileHandler = logging.FileHandler(this.log_file)
+		fileHandler = logging.FileHandler(this.log.file)
 		fileHandler.setFormatter(logFormatter)
 		fileHandler.setLevel(logging.DEBUG)
 		logging.getLogger().addHandler(fileHandler)
@@ -410,9 +424,9 @@ class Executor(DataContainer, Functor):
 		pass
 
 
-	# Register all classes in each directory in this.registerDirectories
+	# Register all classes in each directory in this.this.default.register.directories
 	def RegisterAllClasses(this):
-		for d in this.registerDirectories:
+		for d in this.this.default.register.directories:
 			this.RegisterAllClassesInDirectory(os.path.join(os.getcwd(), d))
 		this.RegisterAllClassesInDirectory(this.repo.registry)
 
@@ -438,7 +452,7 @@ class Executor(DataContainer, Functor):
 		if (this.parsedArgs.config is None):
 			for file in this.default.config.files:
 				for ext in this.default.config.extensions:
-					possibleConfig = f"{this.defaultConfigFile}.{ext}"
+					possibleConfig = f"{file}.{ext}"
 					if (Path(possibleConfig).exists()):
 						this.parsedArgs.config = possibleConfig
 						break
@@ -603,7 +617,7 @@ class Executor(DataContainer, Functor):
 	def Execute(this, functor, *args, **kwargs):
 		if (isinstance(functor, str)):
 			functorName = functor
-			packageType = this.defaultPackageType
+			packageType = this.this.default.package.type
 			if ('packageType' in kwargs):
 				packageType = kwargs.pop('packageType')
 
@@ -880,11 +894,11 @@ class Executor(DataContainer, Functor):
 	# Uses the ResolveError Functors to process any errors.
 	@recoverable
 	def ResolveError(this, error, attemptResolution, obj, function):
-		if (attemptResolution >= len(this.resolveErrorsWith)):
-			raise FailedErrorResolution(f"{this.name} does not have {attemptResolution} resolutions to fix this error: {error} (it has {len(this.resolveErrorsWith)})")
+		if (attemptResolution >= len(this.error.resolvers)):
+			raise FailedErrorResolution(f"{this.name} does not have {attemptResolution} resolutions to fix this error: {error} (it has {len(this.error.resolvers)})")
 
-		resolution = this.GetRegistered(this.resolveErrorsWith[attemptResolution], "resolve") # Okay to ResolveErrors for ErrorResolutions.
-		this.errorResolutionStack, errorMightBeResolved = resolution(executor=this, error=error, obj=obj, function=function)
+		resolution = this.GetRegistered(this.error.resolvers[attemptResolution], "resolve") # Okay to ResolveErrors for ErrorResolutions.
+		this.error.resolution.stack, errorMightBeResolved = resolution(executor=this, error=error, obj=obj, function=function)
 		if (errorMightBeResolved):
 			logging.debug(f"Error might have been resolved by {resolution.name}.")
 		return errorMightBeResolved

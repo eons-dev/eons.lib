@@ -9,16 +9,16 @@ class import_module(eons.ErrorResolution):
 	def __init__(this, name="import_module"):
 		super().__init__(name)
 
-		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
+		this.ApplyTo('NameError', "name 'SUBJECT' is not defined")
 
 	def Resolve(this):
-		if (this.errorObject not in sys.modules.keys()):
-			this.errorShouldBeResolved = False
+		if (this.error.subject not in sys.modules.keys()):
+			this.error.resolution.successful = False
 			return
 
 		eons.util.BlackMagick.InjectIntoModule(
 			this.function,
-			this.errorObject,
-			sys.modules[this.errorObject]
+			this.error.subject,
+			sys.modules[this.error.subject]
 		)
-		this.errorShouldBeResolved = True
+		this.error.resolution.successful = True

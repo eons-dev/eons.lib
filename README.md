@@ -129,7 +129,7 @@ Eons supports 5 major features:
 
 Eons provides a simple means of retrieving variables from a wide array of places. When you `Fetch()` a variable, we look through:
 1. The system environment (e.g. `export some_key="some value"`)
-2. The json configuration file supplied with `--config` (or specified by `this.defaultConfigFile` per `Configure()`)
+2. The json configuration file supplied with `--config` (or specified by `this.default.config.files` per `Configure()`)
 3. Arguments supplied at the command line (e.g. specifying `--some-key "some value"` makes `Fetch(some_key)` return `"some value"`)
 4. Member variables of the Executor (e.g. `this.some_key = "some value"`)
 
@@ -320,7 +320,7 @@ For other supported features, check out [Functor.py](src/Functor.py)
 
 ### Self Registration
 
-Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using Eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is usually done for you based on the `repo.store` and `defaultRepoDirectory` members), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
+Normally, one has to `import` the files they create into their "main" file in order to use them. That does not apply when using Eons. Instead, you simply have to derive from an appropriate base class and then call `SelfRegistering.RegisterAllClassesInDirectory(...)` (which is usually done for you based on the `repo.store` and `this.default.repo.directory` members), providing the directory of the file as the only argument. This will essentially `import` all files in that directory and make them instantiable via `SelfRegistering("ClassName")`.
 
 Dynamic error resolutions enables this self registration system to work with inheritance as well. This means that, within downloaded functor, you can `from some_module_to_download import my_desired_class` to download another.
 

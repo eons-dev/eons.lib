@@ -24,13 +24,13 @@ class find_by_fetch(eons.ErrorResolution):
 	def __init__(this, name="find_by_fetch"):
 		super().__init__(name)
 
-		this.ApplyTo('NameError', "name 'OBJECT' is not defined")
+		this.ApplyTo('NameError', "name 'SUBJECT' is not defined")
 
 	def Resolve(this):
 		# Using builtins works. This logic has been moved to Executor.
 		# See below for a couple other ways this could be accomplished.
-		this.executor.SetGlobalFromFetch(this.errorObject)
-		this.errorShouldBeResolved = eons.util.HasAttr(builtins, this.errorObject)
+		this.executor.SetGlobalFromFetch(this.error.subject)
+		this.error.resolution.successful = eons.util.HasAttr(builtins, this.error.subject)
 
 		# This method of modifying the function's source code is a potential alternative to global variables.
 		# However, it can be dangerous or just not work.
@@ -50,7 +50,7 @@ class find_by_fetch(eons.ErrorResolution):
 		# defin = ':'.join(sourceMod.split(':')[1:])
 		#
 		# # Add the new declaration to the top of the function
-		# defin = f"\n{indent}{this.errorObject} = {value}{defin}"
+		# defin = f"\n{indent}{this.error.subject} = {value}{defin}"
 		#
 		# # Bring it all back together
 		# sourceMod = decl + defin
@@ -69,4 +69,4 @@ class find_by_fetch(eons.ErrorResolution):
 		# This does what it's supposed to but somehow doesn't update globals() in the other module, leaving the module's __dict__ and globals() entirely identical EXCEPT for the value that we want.
 		#
 		# moduleToHack = inspect.getmodule(this.function)
-		# setattr(moduleToHack, this.errorObject, value)
+		# setattr(moduleToHack, this.error.subject, value)
