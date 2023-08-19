@@ -334,7 +334,7 @@ class Functor(Datum, BackwardsCompatible):
 				varName = var
 				break
 		logging.info(f"{varName} = {value} ({type(value)})")
-		setattr(this, varName, value)
+		exec(f"this.{varName} = value")
 
 
 	# Will try to get a value for the given varName from:
