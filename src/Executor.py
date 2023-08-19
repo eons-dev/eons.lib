@@ -65,7 +65,6 @@ class Executor(DataContainer, Functor):
 
 		# Caching is required for Functor's arg.kw.static and other static features to be effective.
 		# This is used in Execute().
-		this.cache = util.DotDict()
 		this.cache.functors = {}
 
 		# General system info
@@ -153,9 +152,23 @@ class Executor(DataContainer, Functor):
 		# We can't Fetch from everywhere while we're getting things going. However, these should be safe,
 		this.fetch.useDuringSetup = ['args', 'config', 'environment']
 
+		this.MaintainCompatibilityFor(2.0, {
+			'error.resolve': 'resolveErrors',
+			'error.resolvers': 'resolveErrorsWith',
+			'error.resolution.stack': 'errorResolutionStack',
+			'error.resolution.depth': 'errorRecursionDepth',
+			'cache.functors': 'cachedFunctors',
+			'arg.parser': 'argparser',
+			'log.file': 'log_file',
+			'default.register.directories': 'registerDirectories',
+			'default.repo.directory': 'defaultRepoDirectory',
+			'default.package.type': 'defaultPackageType',
+			'default.config.files': 'defaultConfigFile',
+			'default.config.extensions': 'configFileExtensions',
+		})
+
 		this.Configure()
 		this.RegisterIncludedClasses()
-		this.argparser = this.arg.parser # For backwards compatibility.
 		this.AddArgs()
 		this.ResetPlacementSession()
 
@@ -163,23 +176,6 @@ class Executor(DataContainer, Functor):
 	def SupportBackwardsCompatibility(this):
 		super().SupportBackwardsCompatibility()
 		if (this.compatibility < 3):
-			v2Map = {
-				'error.resolve': 'resolveErrors',
-				'error.resolvers': 'resolveErrorsWith',
-				'error.resolution.stack': 'errorResolutionStack',
-				'error.resolution.depth': 'errorRecursionDepth',
-				'cache.functors': 'cachedFunctors',
-				'arg.parser': 'argParser',
-				'log.file': 'log_file',
-				'default.register.directories': 'registerDirectories',
-				'default.repo.directory': 'defaultRepoDirectory',
-				'default.package.type': 'defaultPackageType',
-				'default.config.files': 'defaultConfigFile',
-				'default.config.extensions': 'configFileExtensions',
-			}
-			for newExpr, oldExpr in v2Map.items():
-				this.MapBackwards(newExpr, oldExpr)
-			
 			if (type(this.default.config.files) is not list):
 				this.default.config.files = [this.default.config.files]
 

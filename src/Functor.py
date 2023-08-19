@@ -7,6 +7,7 @@ from copy import deepcopy
 import builtins
 from .Constants import *
 from .Datum import Datum
+from .BackwardsCompatible import BackwardsCompatible
 from .Exceptions import *
 from .Utils import util
 from .FunctorTracker import FunctorTracker
@@ -23,18 +24,14 @@ from .Recoverable import Recover
 # You may additionally specify required methods (per @method()) and required programs (i.e. external binaries).
 # When Executing a Functor, you can say 'next=[...]', in which case multiple Functors will be Executed in sequence. This is necessary for the method propagation machinery to work.
 # When invoking a sequence of Functors, only the result of the last Functor to be Executed or the first Functor to fail will be returned.
-class Functor(Datum):
+class Functor(Datum, BackwardsCompatible):
 
 	# Which function should be overridden when creating a @kind from *this.
 	primaryFunctionName = 'Function'
 
-	# How much backwards compatibility should be maintained.
-	# compatibility value is the lowest version of eons that this Functor is compatible with.
-	# Compatibility is usually handled in the SupportBackwardsCompatibility method.
-	compatibility = 2.0
-
 	def __init__(this, name=INVALID_NAME()):
-		super().__init__(name)
+		Datum.__init__(this, name)
+		BackwardsCompatible.__init__(this)
 
 		# All @methods.
 		# See Method.py for details.
@@ -186,6 +183,26 @@ class Functor(Datum):
 		this.abort = util.DotDict()
 		this.abort.WarmUp = False
 
+		# Mappings to support older versions
+		this.MaintainCompatibilityFor(2.0, {
+			'method.call': 'callMethod',
+			'method.rollback': 'rollbackMethod',
+			'method.sources': 'methodSources',
+			'method.required': 'requiredMethods',
+			'arg.kw.required': 'requiredKWArgs',
+			'arg.kw.optional': 'optionalKWArgs',
+			'arg.kw.static': 'staticKWArgs',
+			'arg.valid.static': 'staticArgsValid',
+			'arg.mapping': 'argMapping',
+			'fetch.use': 'fetchFrom',
+			'fetch.locations': 'fetchLocations',
+			'program.required': 'requiredPrograms',
+			'override.config': 'configNameOverrides',
+			'feature.autoReturn': 'enableAutoReturn',
+			'feature.rollback': 'enableRollback',
+			'feature.raiseExceptions': 'raiseExceptions',
+		})
+
 
 	# Override this and do whatever!
 	# This is purposefully vague.
@@ -235,40 +252,11 @@ class Functor(Datum):
 	def AfterRollback(this):
 		pass
 
-	
-	# Generic way to maintain backwards compatibility.
-	# Assume all defaults are set ahead of time.
-	def MapBackwards(this, newExpr, oldExpr):
-		try:
-			exec(f"this.{newExpr} = this.{oldExpr}")
-		except:
-			pass
 
-
-	# Allow use of old apis.
-	# This should be run once, during construction.
+	# Called during initialization.
+	# Use this to address any type conversion, etc.
 	def SupportBackwardsCompatibility(this):
-		if (this.compatibility < 3):
-			v2Map = {
-				'method.call': 'callMethod',
-				'method.rollback': 'rollbackMethod',
-				'method.sources': 'methodSources',
-				'method.required': 'requiredMethods',
-				'arg.kw.required': 'requiredKWArgs',
-				'arg.kw.optional': 'optionalKWArgs',
-				'arg.kw.static': 'staticKWArgs',
-				'arg.valid.static': 'staticArgsValid',
-				'arg.mapping': 'argMapping',
-				'fetch.use': 'fetchFrom',
-				'fetch.locations': 'fetchLocations',
-				'program.required': 'requiredPrograms',
-				'override.config': 'configNameOverrides',
-				'feature.autoReturn': 'enableAutoReturn',
-				'feature.rollback': 'enableRollback',
-				'feature.raiseExceptions': 'raiseExceptions',
-			}
-			for newExpr, oldExpr in v2Map.items():
-				this.MapBackwards(newExpr, oldExpr)
+		pass
 
 
 	# Create a list of methods / member functions which will search different places for a variable.
@@ -794,6 +782,7 @@ class Functor(Datum):
 
 	# Reduce the work required to access return values.
 	# Make it possible to access related classes on the fly.
+	#TODO: enable access of non existent members via the recovery machinery (e.g. this.retrievedViaTheNetwork.whatever)
 	def __getattr__(this, attribute):
 		try:
 			this.__getattribute__(attribute)
@@ -801,13 +790,14 @@ class Functor(Datum):
 			try:
 				return this.__dict__[attribute]
 			except:
-				if ('result' not in this.__dict__ or 'name' not in this.__dict__):
-					raise AttributeError(f"{type(this).__name__} has no attribute {attribute}")
-				if (attribute in this.result.data):
-					return this.result.data[attribute]
-				else:
-					raise AttributeError(f"{this.name} has no attribute {attribute}")
-		#TODO: enable access of non existent members via the recovery machinery (e.g. this.retrievedViaTheNetwork.whatever)
+				try:
+					return BackwardsCompatible.Get(this, attribute)
+				except:
+					try:
+						# Easy access to return values.
+						return this.result.data[attribute]
+					except:
+						raise AttributeError(f"{this.name} has no attribute {attribute}")
 
 
 	# Adapter for @recoverable.
