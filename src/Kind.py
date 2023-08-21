@@ -70,6 +70,8 @@ def kind(
 	def FunctionToFunctor(function):
 		executor = ExecutorTracker.GetLatest()
 		shouldLog = executor and executor.verbosity > 3
+		
+		destinedModule = inspect.getmodule(function)
 
 		bases = base
 		if (isinstance(bases, type)):
@@ -99,9 +101,13 @@ def kind(
 
 		# Constructor creation
 		constructorName = f"_eons_constructor_{kwargs['name']}"
-		constructorSource = f"def {constructorName}(this, name='{function.__name__}'):"
-		for b in bases:
-			ctor.source.insert(0, f"{b.__name__}.__init__(this, name)")
+		constructorSource = f'''
+def {constructorName}(this, name='{function.__name__}'):
+	this.name = name # For debugging
+	from {destinedModule.__name__} import {functor.__name__}
+	super({functor.__name__}, this).__init__()
+	this.name = name # For use
+'''
 		constructorSource += '\n\t' + '\n\t'.join(ctor.source)
 		if (len(ctor.additions)):
 			re.sub(r'^\s+', '\n', ctor.additions)
