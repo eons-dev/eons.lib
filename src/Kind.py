@@ -72,6 +72,14 @@ def kind(
 		shouldLog = executor and executor.verbosity > 3
 		
 		destinedModule = inspect.getmodule(function)
+		destinedModuleName = INVALID_NAME()
+		if (destinedModule):
+			destinedModuleName = destinedModule.__name__
+		pivotModule = None
+		if (not destinedModule):
+			pivotModule = inspect.currentframe().f_back
+			if (not str(pivotModule).endswith('<module>>')):
+				pivotModule = None
 
 		bases = base
 		if (isinstance(bases, type)):
@@ -101,10 +109,30 @@ def kind(
 
 		# Constructor creation
 		constructorName = f"_eons_constructor_{kwargs['name']}"
-		constructorSource = f'''
-def {constructorName}(this, name='{function.__name__}'):
+		constructorSource = f"def {constructorName}(this, name='{function.__name__}'):"
+		constructorSource += "\n\timport sys"
+		constructorSource += "\n\timport eons"
+		constructorSource += f'''
 	this.name = name # For debugging
-	from {destinedModule.__name__} import {functor.__name__}
+	try:
+		{functor.__name__} = importedAs = eons.util.BlackMagick.GetCurrentFunction().__source_class__
+		if (not isinstance(this, {functor.__name__})):
+			raise Exception('{functor.__name__} not in source class')
+	except Exception as e1:
+		try:
+			importedAs = eons.util.BlackMagick.GetCurrentFunction().__pivot_module__.f_locals['__imported_as__']
+			{functor.__name__} = sys.modules[importedAs].{functor.__name__}
+			if (not isinstance(this, {functor.__name__})):
+				raise Exception('{functor.__name__} not in {{importedAs}}')
+		except Exception as e2:
+			try:
+				{functor.__name__} = sys.modules[{destinedModuleName}].{functor.__name__}
+				if (not isinstance(this, {functor.__name__})):
+					raise Exception('{functor.__name__} not in {destinedModuleName}')
+			except Exception as e3:
+				logging.warning(f"Failed to initialize {functor.__name__}: \\n{{e1}}\\n{{e2}}\\n{{e3}}")
+				# Catch all. This will cause an infinite loop if this != {functor.__name__}
+				{functor.__name__} = this.__class__
 	super({functor.__name__}, this).__init__()
 	this.name = name # For use
 '''
@@ -117,6 +145,8 @@ def {constructorName}(this, name='{function.__name__}'):
 		code = compile(constructorSource, '', 'exec')
 		exec(code)
 		exec(f'functor.__init__ = {constructorName}')
+		functor.__init__.__source_class__ = functor
+		functor.__init__.__pivot_module__ = pivotModule
 
 		wrappedPrimaryFunction = f"_eons_method_{kwargs['name']}"
 		completeSource = f'''\

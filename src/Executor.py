@@ -490,8 +490,8 @@ class Executor(DataContainer, Functor):
 	# Get information for interacting with Constellatus
 	def PopulateObservatoryDetails(this):
 		details = {
-			"online": False,
-			"url": "http://localhost:1137",
+			"online": True,
+			"url": "https://api.constellatus.com",
 			"username": None,
 			"password": None
 		}
@@ -767,11 +767,12 @@ class Executor(DataContainer, Functor):
 		if (packageType):
 			packageType = "." + packageType
 		
+		namespacedRegisteredName = registeredName
 		if (namespace):
-			registeredName = Namespace(namespace).ToName() + registeredName
+			namespacedRegisteredName = Namespace(namespace).ToName() + registeredName
 
 		try:
-			registered = SelfRegistering(registeredName)
+			registered = SelfRegistering(namespacedRegisteredName)
 		except Exception as e:
 			try:
 				# If the Observatory is online, let's try to use Constellatus.
@@ -780,14 +781,14 @@ class Executor(DataContainer, Functor):
 			except: # We don't care about Constellatus errors right now.
 
 				# We couldn't get what was asked for. Let's try asking for help from the error resolution machinery.
-				packageName = registeredName + packageType
+				packageName = namespacedRegisteredName + packageType
 				logging.error(f"While trying to instantiate {packageName}, got: {e}")
 				raise HelpWantedWithRegistering(f"Trying to get SelfRegistering {packageName}")
 
 		# NOTE: Functors are Data, so they have an IsValid() method
 		if (not registered or not registered.IsValid()):
-			logging.error(f"No valid object: {registeredName}")
-			raise FatalCannotExecute(f"No valid object: {registeredName}")
+			logging.error(f"No valid object: {namespacedRegisteredName}")
+			raise FatalCannotExecute(f"No valid object: {namespacedRegisteredName}")
 
 		return registered
 

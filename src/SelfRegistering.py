@@ -37,7 +37,7 @@ class SelfRegistering(object):
 	#TODO: How do we pass args to the subsequently called __init__()?
 	def __new__(cls, classname, *args, **kwargs):
 		toNew = cls.GetClass(classname)
-		logging.debug(f"Creating new {toNew.__name__}")
+		logging.debug(f"Creating new {toNew.__name__} from {toNew.__module__}")
 
 		# Using "object" base class method avoids recursion here.
 		child = object.__new__(toNew)
@@ -80,6 +80,7 @@ class SelfRegistering(object):
 
 			# NOTE: the module is not actually imported in that it is available through sys.modules.
 			# However, this appears to be enough to get both inheritance and SelfRegistering functionality to work.
+			module.__imported_as__ = importName
 			sys.modules[importName] = module #But just in case...
 			logging.debug(f"{moduleName} imported as {importName}.")
 

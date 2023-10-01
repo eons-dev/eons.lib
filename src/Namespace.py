@@ -7,7 +7,7 @@ class Namespace:
 		this.namespaces = []
 
 		if (isinstance(namespaces, str)):
-			this.namespaces = namespaces.split(':')
+			this.namespaces = namespaces.split('/')
 			this.namespaces = [namespace for namespace in this.namespaces if len(namespace)]
 		elif (isinstance(namespaces, list)):
 			this.namespaces = namespaces
@@ -19,10 +19,10 @@ class Namespace:
 		return Namespace(this.namespaces[start:end])
 	
 	def __str__(this):
-		ret = "::" + ":".join(this.namespaces)
-		if (ret == "::"):
-			return "::"
-		return ret + ":"
+		ret = ":" + "/".join(this.namespaces)
+		if (ret == ":"):
+			return ":"
+		return ret + "/"
 
 	# Get a namespace string as something more reasonable in python.
 	def ToName(this):
@@ -57,7 +57,7 @@ class NamespaceTracker:
 		return NamespaceTracker.instance
 
 # Decorator to add a namespace to a class.
-# Should look like @namespace('foo::bar')
+# Should look like @namespace(':/foo/bar')
 def namespace(ns):
 	def DecorateWithNamespace(cls):
 		locale = Namespace(ns)

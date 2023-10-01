@@ -2,6 +2,7 @@ import traceback
 import logging
 import jsonpickle
 import inspect
+import gc
 from .Exceptions import *
 from copy import deepcopy
 
@@ -161,5 +162,15 @@ class util:
 			moduleToHack = inspect.getmodule(source)
 			setattr(moduleToHack, name, value)
 
+		# Identify the current function object, without any inputs.
+		# TODO: This is slow and implementation dependent. There should be a more optimized way to do this.
+		@staticmethod
+		def GetCurrentFunction():
+			code = inspect.currentframe().f_back.f_code
+			functype = type(lambda: None)
+			for func in gc.get_referrers(code):
+				if type(func) is functype and getattr(func, "__code__", None) is code:
+					return func
+			return None
 
 jsonpickle.handlers.registry.register(util.DotDict, util.DotDictPickler)
