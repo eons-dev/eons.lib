@@ -531,7 +531,7 @@ class Functor(Datum, BackwardsCompatible):
 		if (not this.executor):
 			logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
-		if ('precursor' in this.kwargs):
+		if ('precursor' in this.kwargs and this.kwargs['precursor'] is not None):
 			this.precursor = this.kwargs.pop('precursor')
 			logging.debug(f"{this.name} was preceded by {this.precursor.name}")
 		else:
