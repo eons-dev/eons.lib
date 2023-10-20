@@ -443,7 +443,7 @@ class Executor(DataContainer, Functor):
 			# Yaml doesn't allow tabs. We do. Convert.
 			return yaml.safe_load(configFile.read().replace('\t', '  '))
 		else:
-			raise ExecutorSetupError(f"Unknown configuration file type: {this.configType}")
+			raise ExecutorSetupError(f"Unknown configuration file type: {configType}")
 
 
 	# Populate the configuration details for *this.
