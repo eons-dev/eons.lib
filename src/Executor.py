@@ -431,15 +431,17 @@ class Executor(DataContainer, Functor):
 		this.RegisterAllClassesInDirectory(this.repo.registry)
 
 
-	# Grok the configFile and populate this.config
-	def ParseConfigFile(this, configFile):
-		if (this.configType in ['py']):
-			this.RegisterAllClassesInDirectory(Path('./').joinpath('/'.join(this.parsedArgs.config.split('/')[:-1])))
-			functor = SelfRegistering(this.parsedArgs.config.split('/')[-1].split('.')[0])
-			this.config = functor(executor=this)
-		elif (this.configType in ['json', 'yml', 'yaml']):
+	# Grok the configFile and return the results.
+	@staticmethod
+	def ParseConfigFile(executor, configType, configFile, functor=None):
+		if (configType in ['py']):
+			if (functor is None):
+				raise ExecutorSetupError(f"Cannot parse python config file without a functor.")
+			
+			return functor(executor=executor).result.data
+		elif (configType in ['json', 'yml', 'yaml']):
 			# Yaml doesn't allow tabs. We do. Convert.
-			this.config = yaml.safe_load(configFile.read().replace('\t', '  '))
+			return yaml.safe_load(configFile.read().replace('\t', '  '))
 		else:
 			raise ExecutorSetupError(f"Unknown configuration file type: {this.configType}")
 
@@ -467,9 +469,13 @@ class Executor(DataContainer, Functor):
 			return
 		
 		this.configType = this.parsedArgs.config.split('.')[-1]
+		configFunctor = None
+		if (this.configType in ['py']):
+			this.RegisterAllClassesInDirectory(Path('./').joinpath('/'.join(this.parsedArgs.config.split('/')[:-1])))
+			configFunctor = SelfRegistering(this.parsedArgs.config.split('/')[-1].split('.')[0])
 
 		configFile = open(this.parsedArgs.config, "r")
-		this.ParseConfigFile(configFile)
+		this.config = this.ParseConfigFile(this, this.configType, configFile, configFunctor)
 		configFile.close()
 
 
