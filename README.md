@@ -54,6 +54,10 @@ The main differences between the Kind syntax and the Eons Language of Developmen
 * Convenient type casting is not fully implemented in Kind.
 * Access control is not yet implemented in Kind.
 
+### Parent
+
+You can access the parent *class* (not a cast of the current object to a parent object) via the `parent` member. For example, you can call `return this.parent.Function(this)` to call the parent's `Function()` method. Note that you must still pass the instance (`this`) explicitly, since `this.parent` returns a class, not an instance.
+
 ### Caller
 
 When composing Functors, the `this` keyword is often ambiguous. Between functions of a class, `this` always refers to the class itself. However, when each function is also a class, does `this` mean the Functor or the class to which it belongs?

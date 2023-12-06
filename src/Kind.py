@@ -133,6 +133,7 @@ def kind(
 				logging.warning(f"Failed to initialize {functor.__name__}: \\n{{e1}}\\n{{e2}}\\n{{e3}}")
 				# Catch all. This will cause an infinite loop if this != {functor.__name__}
 				{functor.__name__} = this.__class__
+	this.parent = type(this).mro()[1]
 	super({functor.__name__}, this).__init__()
 	this.name = name # For use
 '''
