@@ -144,6 +144,10 @@ class Functor(Datum, BackwardsCompatible):
 		# Whether or not we should pass on exceptions when calls fail.
 		this.feature.raiseExceptions = True
 
+		# Whether or not to utilize arg.mapping
+		# Set to False if you want to capture args as variadic, etc.
+		this.feature.mapArgs = True
+
 		# Allow partial function calls by marking *this as incomplete.
 		# Incomplete means that more arguments need to be provided.
 		this.incomplete= False
@@ -545,19 +549,21 @@ class Functor(Datum, BackwardsCompatible):
 		# logging.debug(f"this.kwargs: {this.kwargs}")
 		# logging.debug(f"required this.kwargs: {this.arg.kw.required}")
 
-		if (len(this.args) > len(this.arg.mapping)):
-			raise MissingArgumentError(f"Too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.arg.mapping)}) {this.arg.mapping}")
-		argMap = dict(zip(this.arg.mapping[:len(this.args)], this.args))
-		logging.debug(f"Setting values from args: {argMap}")
-		for arg, value in argMap.items():
-			this.Set(arg, value)
+		if (this.feature.mapArgs):
+			if (len(this.args) > len(this.arg.mapping)):
+				raise MissingArgumentError(f"Too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.arg.mapping)}) {this.arg.mapping}")
+			argMap = dict(zip(this.arg.mapping[:len(this.args)], this.args))
+			logging.debug(f"Setting values from args: {argMap}")
+			for arg, value in argMap.items():
+				this.Set(arg, value)
 
 		#NOTE: In order for *this to be called multiple times, required and optional kwargs must always be fetched and not use stale data from *this.
 
 		if (this.arg.kw.required):
 			for rkw in this.arg.kw.required:
-				if (rkw in argMap.keys()):
-					continue
+				if (this.feature.mapArgs):
+					if (rkw in argMap.keys()):
+						continue
 				
 				logging.debug(f"Fetching required value {rkw}...")
 				fetched, found = this.FetchWithout(['this'], rkw, start = False)
@@ -571,8 +577,9 @@ class Functor(Datum, BackwardsCompatible):
 
 		if (this.arg.kw.optional):
 			for okw, default in this.arg.kw.optional.items():
-				if (okw in argMap.keys()):
-					continue
+				if (this.feature.mapArgs):
+					if (okw in argMap.keys()):
+						continue
 
 				this.Set(okw, this.FetchWithout(['this'], okw, default=default))
 
@@ -831,7 +838,7 @@ class Functor(Datum, BackwardsCompatible):
 		this.next.append(next)
 		next.abort.WarmUp = False
 		return this.CallNext()
-	
+
 
 	# Avert your eyes!
 	# This is deep black magick fuckery.

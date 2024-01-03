@@ -67,7 +67,7 @@ def kind(
 			
 		return functor, source, ctor
 
-	def FunctionToFunctor(function):
+	def FunctionToFunctor(function, functorName=None, args=None, source=None):
 		executor = ExecutorTracker.GetLatest()
 		shouldLog = executor and executor.verbosity > 3
 		
@@ -87,17 +87,23 @@ def kind(
 		
 		primaryFunctionName = bases[0].primaryFunctionName
 
+		if (functorName is None):
+			functorName = function.__name__
+
 		functor = type(
-			function.__name__,
+			functorName,
 			(*bases,),
 			{}
 		)
 
 		if ('name' not in kwargs):
-			kwargs['name'] = function.__name__
-	
-		args = inspect.signature(function).parameters
-		source = inspect.getsource(function)
+			kwargs['name'] = functorName
+
+		if (args is None):
+			args = inspect.signature(function).parameters
+		if (source is None):
+			source = inspect.getsource(function)
+		
 		source = source[source.find(':\n')+1:].strip() # Will fail if an arg has ':\n' in it
 		source = re.sub(r'caller([\s\[\]\.\(\)\}\*\+/-=%,]|$)', r'this.caller\1', source)
 
@@ -109,7 +115,7 @@ def kind(
 
 		# Constructor creation
 		constructorName = f"_eons_constructor_{kwargs['name']}"
-		constructorSource = f"def {constructorName}(this, name='{function.__name__}'):"
+		constructorSource = f"def {constructorName}(this, name='{functorName}'):"
 		constructorSource += "\n\timport sys"
 		constructorSource += "\n\timport eons"
 		constructorSource += f'''
