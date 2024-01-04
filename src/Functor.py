@@ -187,6 +187,15 @@ class Functor(Datum, BackwardsCompatible):
 		this.abort = util.DotDict()
 		this.abort.WarmUp = False
 
+		this.cloning = util.DotDict()
+		this.cloning.exclusions = [
+			'executor',
+			'precursor',
+			'caller',
+			'next',
+			'callback',
+		]
+
 		# Mappings to support older versions
 		this.MaintainCompatibilityFor(2.0, {
 			'method.call': 'callMethod',
@@ -826,6 +835,8 @@ class Functor(Datum, BackwardsCompatible):
 			if (callable(val)):
 				# PopulateMethods will take care of recreating skipped Methods
 				# All other methods are dropped since they apparently have problems on some implementations.
+				continue
+			if (key in this.cloning.exclusions):
 				continue
 			setattr(ret, key, deepcopy(val, memodict))
 		return ret
