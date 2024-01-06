@@ -94,6 +94,9 @@ class Functor(Datum, BackwardsCompatible):
 		# Use this to make calling your Functor easier (e.g. MyMethod('some value') vs MyMethod(my_value='some value'))
 		this.arg.mapping = []
 
+		# If you'd like to enforce types on your arguments, rather than use Python autotyping, specify the {'argName': type} pairs here.
+		this.arg.type = {}
+
 		# Settings for dependency injection.
 		this.fetch = util.DotDict()
 
@@ -341,11 +344,21 @@ class Functor(Datum, BackwardsCompatible):
 
 	# Wrapper around setattr
 	def Set(this, varName, value, evaluateExpressions=True):
-		value = this.EvaluateToType(value, evaluateExpressions)
 		for key, var in this.override.config.items():
 			if (varName == key):
 				varName = var
 				break
+		if (varName in this.arg.type.keys()):
+			cls = this.arg.type[varName]
+			if (not inspect.isclass(cls) and isinstance(cls, object)):
+				cls = cls.__class__
+			if (issubclass(cls, Functor)):
+				value = cls(value=value)
+			else:
+				value = cls(value)
+		else:
+			value = this.EvaluateToType(value, evaluateExpressions)
+
 		logging.info(f"{varName} = {value} ({type(value)})")
 		exec(f"this.{varName} = value")
 
@@ -362,14 +375,14 @@ class Functor(Datum, BackwardsCompatible):
 		if (attempted is None):
 			attempted = []
 
-		if (this.name in attempted):
-			logging.debug(f"...{this.name} detected loop ({attempted}) while trying to fetch {varName}; using default: {default}.")
+		if (this in attempted):
+			logging.debug(f"...{this} detected loop ({attempted}) while trying to fetch {varName}; using default: {default}.")
 			if (start):
 				return default
 			else:
 				return default, False
 
-		attempted.append(this.name)
+		attempted.append(this)
 
 		if (fetchFrom is None):
 			fetchFrom = this.fetch.use
@@ -789,7 +802,7 @@ class Functor(Datum, BackwardsCompatible):
 
 			ret = this
 
-		logging.info(f"return {ret}")
+		logging.info(f"return {ret} ({type(ret)})")
 		FunctorTracker.Pop(this)
 		logging.info(f"}} ({this.name})")
 
@@ -831,14 +844,32 @@ class Functor(Datum, BackwardsCompatible):
 		ret.__init__()
 
 		memodict[id(this)] = ret
-		for key, val in [tup for tup in this.__dict__.items() if tup[0] not in ['methods']]:
-			if (callable(val)):
-				# PopulateMethods will take care of recreating skipped Methods
-				# All other methods are dropped since they apparently have problems on some implementations.
-				continue
-			if (key in this.cloning.exclusions):
-				continue
-			setattr(ret, key, deepcopy(val, memodict))
+
+		# Huh?
+		try:
+			for key, val in [tup for tup in this.__dict__.items() if tup[0] not in ['methods']]:
+				try:
+					if (callable(val)):
+						# PopulateMethods will take care of recreating skipped Methods
+						# All other methods are dropped since they apparently have problems on some implementations.
+						continue
+					if (key in this.cloning.exclusions):
+						continue
+					setattr(ret, key, deepcopy(val, memodict))
+				except:
+					pass
+		except:
+			for key, val in [tup for tup in this.__dict__().items() if tup[0] not in ['methods']]:
+				try:
+					if (callable(val)):
+						# PopulateMethods will take care of recreating skipped Methods
+						# All other methods are dropped since they apparently have problems on some implementations.
+						continue
+					if (key in this.cloning.exclusions):
+						continue
+					setattr(ret, key, deepcopy(val, memodict))
+				except:
+					pass
 		return ret
 	
 

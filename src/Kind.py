@@ -14,7 +14,7 @@ def kind(
 	base = StandardFunctor,
 	**kwargs
 ):
-	def ParseParameters(functor, args, source, ctor):
+	def ParseParameters(functor, args, source, ctor, strongType = False):
 		# Code duplicated from Method.PopulateFrom. See that class for more info.
 		for arg in args.values():
 			if (arg.name == 'constructor' or arg.name == '__init__'):
@@ -47,7 +47,8 @@ def kind(
 							functor,
 							arg.default.parameters,
 							source,
-							ctor
+							ctor,
+							strongType=strongType
 						)
 						shouldMapArg = False
 					else:
@@ -58,6 +59,14 @@ def kind(
 				else:
 					ctor.source.append(f"this.arg.kw.required.append('{arg.name}')")
 
+				if (strongType and hasattr(arg, 'type')):
+					ctor.source.append(f"""
+	try:
+		this.arg.type['{arg.name}'] = {arg.type.__name__}
+	except:
+		this.arg.type['{arg.name}'] = eons.SelfRegistering('{arg.type.__name__}')
+""")
+
 				if (shouldMapArg):
 					ctor.source.append(f"this.arg.mapping.append('{arg.name}')")
 
@@ -67,7 +76,7 @@ def kind(
 			
 		return functor, source, ctor
 
-	def FunctionToFunctor(function, functorName=None, args=None, source=None):
+	def FunctionToFunctor(function, functorName=None, args=None, source=None, strongType=False):
 		executor = ExecutorTracker.GetLatest()
 		shouldLog = executor and executor.verbosity > 3
 		
@@ -111,11 +120,11 @@ def kind(
 		ctor.source = []
 		ctor.additions = ""
 
-		functor, source, ctor = ParseParameters(functor, args, source, ctor)
+		functor, source, ctor = ParseParameters(functor, args, source, ctor, strongType=strongType)
 
 		# Constructor creation
 		constructorName = f"_eons_constructor_{kwargs['name']}"
-		constructorSource = f"def {constructorName}(this, name='{functorName}'):"
+		constructorSource = f"def {constructorName}(this, name='{functorName}', **kwargs):"
 		constructorSource += "\n\timport sys"
 		constructorSource += "\n\timport eons"
 		constructorSource += f'''
@@ -140,7 +149,7 @@ def kind(
 				# Catch all. This will cause an infinite loop if this != {functor.__name__}
 				{functor.__name__} = this.__class__
 	this.parent = type(this).mro()[1]
-	super({functor.__name__}, this).__init__()
+	super({functor.__name__}, this).__init__(**kwargs)
 	this.name = name # For use
 '''
 		constructorSource += '\n\t' + '\n\t'.join(ctor.source)
