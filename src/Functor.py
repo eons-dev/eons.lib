@@ -573,7 +573,7 @@ class Functor(Datum, BackwardsCompatible):
 
 		if (this.feature.mapArgs):
 			if (len(this.args) > len(this.arg.mapping)):
-				raise MissingArgumentError(f"Too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.arg.mapping)}) {this.arg.mapping}")
+				raise MissingArgumentError(f"{this.name} called with too many arguments. Got ({len(this.args)}) {this.args} but expected at most ({len(this.arg.mapping)}) {this.arg.mapping}")
 			argMap = dict(zip(this.arg.mapping[:len(this.args)], this.args))
 			logging.debug(f"Setting values from args: {argMap}")
 			for arg, value in argMap.items():
@@ -734,12 +734,14 @@ class Functor(Datum, BackwardsCompatible):
 	# Make functor.
 	# Don't worry about this; logic is abstracted to Function
 	def __call__(this, *args, **kwargs) :
-		logging.info(f"{this.name} ({args}, {kwargs}) {{")
+		args_repr = [repr(arg) for arg in args]
+		kwargs_repr = {k: repr(v) for k, v in kwargs.items()}  
+		logging.info(f"{this.name} ({args_repr}, {kwargs_repr}) {{")
 		FunctorTracker.Push(this)
 
 		ret = None
 		nextRet = None
-		
+
 		try:
 			this.WarmUp(*args, **kwargs)
 
@@ -802,7 +804,7 @@ class Functor(Datum, BackwardsCompatible):
 
 			ret = this
 
-		logging.info(f"return {ret} ({type(ret)})")
+		logging.info(f"return {ret} ({[type(r) for r in ret] if type(ret) in [tuple, list] else type(ret)})")
 		FunctorTracker.Pop(this)
 		logging.info(f"}} ({this.name})")
 

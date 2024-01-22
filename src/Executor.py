@@ -9,7 +9,6 @@ from requests_futures.sessions import FuturesSession
 from pathlib import Path
 from tqdm import tqdm
 from zipfile import ZipFile
-from distutils.dir_util import mkpath
 from eot import EOT
 from .Constants import *
 from .Exceptions import *
@@ -661,7 +660,7 @@ class Executor(DataContainer, Functor):
 			if (Path(this.repo[path]).is_dir()):
 				continue
 			logging.debug(f"Creating directory {this.repo[path]}")
-			mkpath(this.repo[path])
+			Path(this.repo[path]).mkdir(parents=True, exist_ok=True)
 
 		packageZipPath = os.path.join(this.repo.store, f"{packageName}.zip")
 
