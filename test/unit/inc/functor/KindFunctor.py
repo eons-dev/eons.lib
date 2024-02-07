@@ -2,7 +2,7 @@ import eons
 
 @eons.kind(eons.Functor)
 def KindChild():
-	return caller.sayHelloTo
+	return epidef.sayHelloTo
 
 @eons.kind(eons.StandardFunctor)
 def KindFunctor(

@@ -110,6 +110,7 @@ class Functor(Datum, BackwardsCompatible):
 			'args',
 			'globals',
 			'config', #local (if applicable) or per Executor; should be before 'executor' if using a local config.
+			'epidef',
 			'precursor',
 			'caller',
 			'executor',
@@ -173,9 +174,14 @@ class Functor(Datum, BackwardsCompatible):
 		# That which came before.
 		this.precursor = None
 
-		# The progenitor of *this.
-		# i.e. the object that called *this, aka 'owner', 'caller', etc.
+		# The reason *this is being __call__()ed.
+		# i.e. the previous Functor in the call stack.
 		this.caller = None
+
+		# The object to which this belongs.
+		# epidef as in "above definition"
+		# For example, if *this is a method of another Functor, this.upper would refer to that other Functor.
+		this.epidef = None
 
 		# The overarching program manager.
 		this.executor = None
@@ -194,6 +200,7 @@ class Functor(Datum, BackwardsCompatible):
 		this.cloning.exclusions = [
 			'executor',
 			'precursor',
+			'epidef',
 			'caller',
 			'next',
 			'callback',
@@ -519,7 +526,7 @@ class Functor(Datum, BackwardsCompatible):
 						continue
 
 					methodToInsert = deepcopy(method)
-					methodToInsert.caller = this
+					methodToInsert.epidef = this
 					methodToInsert.UpdateSource()
 
 					if (existingMethod.inheritedMethodsFirst):
@@ -531,7 +538,7 @@ class Functor(Datum, BackwardsCompatible):
 						this.methods[method.name].next.append(methodToInsert)
 				else:
 					this.methods[method.name] = deepcopy(method)
-					this.methods[method.name].caller = this
+					this.methods[method.name].epidef = this
 					this.methods[method.name].UpdateSource()
 
 		for method in this.methods.values():
@@ -913,17 +920,23 @@ class Functor(Datum, BackwardsCompatible):
 		return default, False
 
 
+	def fetch_location_epidef(this, varName, default, fetchFrom, attempted):
+		if (this.epidef is None):
+			return default, False
+		return this.epidef.FetchWithAndWithout(['this'], ['environment', 'globals', 'executor'], varName, default, fetchFrom, False, attempted)
+
+
+	def fetch_location_caller(this, varName, default, fetchFrom, attempted):
+		if (this.caller is None):
+			return default, False
+		return this.caller.FetchWithAndWithout(['this'], ['environment', 'globals', 'executor'], varName, default, fetchFrom, False, attempted)
+
+
 	def fetch_location_precursor(this, varName, default, fetchFrom, attempted):
 		if (this.precursor is None):
 			return default, False
-		return this.precursor.FetchWithAndWithout(['this'], ['environment'], varName, default, fetchFrom, False, attempted)
-	
-	
-	def fetch_location_caller(this, varName, default, fetchFrom, attempted):
-		if (not this.caller):
-			return default, False
-		
-		return this.caller.FetchWithout(['environment'], varName, default, fetchFrom, False, attempted)
+		return this.precursor.FetchWithAndWithout(['this'], ['environment', 'globals', 'executor'], varName, default, fetchFrom, False, attempted)
+
 
 
 	# Call the Executor's Fetch method.

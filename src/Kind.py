@@ -114,7 +114,7 @@ def kind(
 			source = inspect.getsource(function)
 		
 		source = source[source.find(':\n')+1:].strip() # Will fail if an arg has ':\n' in it
-		source = re.sub(r'caller([\s\[\]\.\(\)\}\*\+/-=%,]|$)', r'this.caller\1', source)
+		source = re.sub(r'epidef([\s\[\]\o.\(\)\}\*\+/-=%,]|$)', r'this.epidef\1', source)
 
 		ctor = util.DotDict()
 		ctor.source = []

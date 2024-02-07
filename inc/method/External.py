@@ -1,7 +1,7 @@
 import logging
 import eons
 
-# External Methods replace a function with a Functor retrieved from outside the caller's module.
+# External Methods replace a function with a Functor retrieved from outside the epidef's module.
 # The function's name should match the name of the Functor that will replace it.
 # The function need not take any arguments beyond *this.
 class External(eons.Method):
@@ -20,7 +20,7 @@ class External(eons.Method):
 		if (not this.type):
 			this.type = eons.ExecutorTracker.GetLatest().default.package.type
 		try:
-			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type, namespace = this.caller.name)
+			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type, namespace = this.epidef.name)
 		except:
 			this.functor = eons.ExecutorTracker.GetLatest().GetRegistered(this.functorName, this.type)
 
@@ -42,7 +42,7 @@ class External(eons.Method):
 			'executor': this.executor,
 			'precursor': this,
 		})
-		this.functor.caller = this.caller
+		this.functor.epidef = this.epidef
 		return kwargs
 	
 	def WarmUp(this, *args, **kwargs):
