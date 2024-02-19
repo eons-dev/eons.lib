@@ -29,11 +29,19 @@ class FunctorTracker:
 
 	@staticmethod
 	def Push(functor):
+		if (functor is None or not functor.feature.track):
+			logging.debug(f"Refusing to track {functor}")
+			return
+
 		FunctorTracker.Instance().functors.append(functor)
 
 	# Remove the last instance of the functor from the list.
 	@staticmethod
 	def Pop(functor):
+		if (functor is None or not functor.feature.track):
+			logging.debug(f"Refusing to untrack {functor}")
+			return
+
 		tracker = FunctorTracker.Instance()
 		tracker.functors.reverse()
 		try:
@@ -46,6 +54,12 @@ class FunctorTracker:
 	def GetCount():
 		return len(FunctorTracker.Instance().functors)
 
+	@staticmethod
+	def GetLatest(backtrack=0):
+		try:
+			return FunctorTracker.Instance().functors[-1 - backtrack]
+		except:
+			return None
 
 	# Add a sequence to *this.
 	@staticmethod

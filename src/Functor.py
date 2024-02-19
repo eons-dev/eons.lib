@@ -152,6 +152,11 @@ class Functor(Datum, BackwardsCompatible):
 		# Set to False if you want to capture args as variadic, etc.
 		this.feature.mapArgs = True
 
+		# Functors should be tracked by default.
+		# Not tracking a Functor means losing access to features like sequencing and the caller member.
+		# However, if you have an intermediate layer between your Functors of interest (e.g. EXEC in Elderlang), you may consider disabling tracking of those intermediates.
+		this.feature.track = True
+
 		# Allow partial function calls by marking *this as incomplete.
 		# Incomplete means that more arguments need to be provided.
 		this.incomplete= False
@@ -565,11 +570,12 @@ class Functor(Datum, BackwardsCompatible):
 			logging.warning(f"{this.name} was not given an 'executor'. Some features will not be available.")
 
 		if ('precursor' in this.kwargs and this.kwargs['precursor'] is not None):
-			this.precursor = this.kwargs.pop('precursor')
-			logging.debug(f"{this.name} was preceded by {this.precursor.name}")
+			this.Set('precursor', this.kwargs.pop('precursor'))
 		else:
-			this.precursor = None
-			logging.debug(f"{this.name} was preceded by None")
+			this.Set('precursor', None)
+
+		if (this.feature.track):
+			this.Set('caller', FunctorTracker.GetLatest(1))
 
 
 	# Override this with any additional argument validation you need.
@@ -686,12 +692,13 @@ class Functor(Datum, BackwardsCompatible):
 	# All initialization should be done here.
 	# RETURN boolean indicating whether or not *this is ready to do work.
 	def WarmUp(this, *args, **kwargs):
-		if (FunctorTracker.Instance().sequence.current.running):
-			# We just started a new sequence. We're not ready to do work yet.
-			if (FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state == 'initiated'):
-				this.incomplete = True
-				this.abort.WarmUp = True
-				FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state = 'ready'
+		if (this.feature.track):
+			if (FunctorTracker.Instance().sequence.current.running):
+				# We just started a new sequence. We're not ready to do work yet.
+				if (FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state == 'initiated'):
+					this.incomplete = True
+					this.abort.WarmUp = True
+					FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state = 'ready'
 		# NOTE: this.abortWarmUp will (should) be set by the precursor before calling *this.
 		
 		if (not this.incomplete):
@@ -744,7 +751,9 @@ class Functor(Datum, BackwardsCompatible):
 		args_repr = [repr(arg) for arg in args]
 		kwargs_repr = {k: repr(v) for k, v in kwargs.items()}  
 		logging.info(f"{this.name} ({args_repr}, {kwargs_repr}) {{")
-		FunctorTracker.Push(this)
+		
+		if (this.feature.track):
+			FunctorTracker.Push(this)
 
 		ret = None
 		nextRet = None
@@ -752,15 +761,17 @@ class Functor(Datum, BackwardsCompatible):
 		try:
 			this.WarmUp(*args, **kwargs)
 
-			# TODO: Can we make this more performant? We should avoid doing this every time if we can.
-			isSequence = this.WillPerformSequence()
-			if (isSequence):
-				FunctorTracker.InitiateSequence() # Has to be after WarmUp.
+			if (this.feature.track):
+				# TODO: Can we make this more performant? We should avoid doing this every time if we can.
+				isSequence = this.WillPerformSequence()
+				if (isSequence):
+					FunctorTracker.InitiateSequence() # Has to be after WarmUp.
 
 			if (this.incomplete):
 				logging.debug(f"{this.name} incomplete.")
 				logging.info(f"return {ret}")
-				FunctorTracker.Pop(this)
+				if (this.feature.track):
+					FunctorTracker.Pop(this)
 				logging.info(f"}} ({this.name})")
 				return this
 			
@@ -812,7 +823,8 @@ class Functor(Datum, BackwardsCompatible):
 			ret = this
 
 		logging.info(f"return {ret} ({[type(r) for r in ret] if type(ret) in [tuple, list] else type(ret)})")
-		FunctorTracker.Pop(this)
+		if (this.feature.track):
+			FunctorTracker.Pop(this)
 		logging.info(f"}} ({this.name})")
 
 		return ret
