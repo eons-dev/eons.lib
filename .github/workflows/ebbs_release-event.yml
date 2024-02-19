@@ -17,6 +17,7 @@ jobs:
         python-version: '3.x'
     - name: Install ebbs
       run: |
+        pip install setuptools
         pip install ebbs
         pip install eot
     - name: Build
