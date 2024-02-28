@@ -627,11 +627,7 @@ class Executor(DataContainer, Functor):
 			packageType = this.default.package.type
 			if ('packageType' in kwargs):
 				packageType = kwargs.pop('packageType')
-
-			if (functorName in this.cache.functors):
-				functor = this.cache.functors[functorName]
-			else:
-				functor = this.GetRegistered(functorName, packageType)
+			functor = this.GetRegistered(functorName, packageType)
 		else:
 			functorName = functor.name
 
@@ -768,6 +764,9 @@ class Executor(DataContainer, Functor):
 		registeredName,
 		packageType="",
 		namespace=None):
+
+		if (registeredName in this.cache.functors):
+				return this.cache.functors[registeredName]
 
 		if (packageType):
 			packageType = "." + packageType

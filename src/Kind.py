@@ -99,6 +99,8 @@ def kind(
 		if (functorName is None):
 			functorName = function.__name__
 
+		logging.debug(f"Creating '{functorName}' from {bases} in module '{destinedModuleName if destinedModule else 'eons'}'")
+
 		functor = type(
 			functorName,
 			(*bases,),
@@ -174,6 +176,14 @@ def {wrappedPrimaryFunction}(this):
 		code = compile(completeSource, '', 'exec')
 		exec(code)
 		exec(f'functor.{primaryFunctionName} = {wrappedPrimaryFunction}')
+
+		if (not destinedModule):
+			destinedModuleName = 'eons.eons'
+
+		try:
+			setattr(sys.modules[destinedModuleName], functorName, functor)
+		except Exception as e:
+			logging.warning(f"Failed to set {functorName} in {destinedModuleName}: {e}")
 
 		return functor
 
