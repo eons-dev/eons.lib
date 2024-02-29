@@ -471,14 +471,14 @@ class Functor(Datum, BackwardsCompatible):
 	def FetchWithout(this, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
 			currentFetchFrom = this.fetch.use
-		fetchFrom = [f for f in this.fetch.use if f not in dontFetchFrom]
+		fetchFrom = [f for f in currentFetchFrom if f not in dontFetchFrom]
 		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
 	# Ease of use method for Fetching while including some search location and excluding others.
 	def FetchWithAndWithout(this, doFetchFrom, dontFetchFrom, varName, default=None, currentFetchFrom=None, start=True, attempted=None):
 		if (currentFetchFrom is None):
 			currentFetchFrom = this.fetch.use
-		fetchFrom = [f for f in this.fetch.use if f not in dontFetchFrom]
+		fetchFrom = [f for f in currentFetchFrom if f not in dontFetchFrom]
 		fetchFrom = list(set(fetchFrom + doFetchFrom))
 		return this.Fetch(varName, default, fetchFrom, start, attempted)
 
