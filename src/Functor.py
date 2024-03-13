@@ -63,7 +63,7 @@ class Functor(Datum, BackwardsCompatible):
 		this.initialized = False
 
 		# Internal variable used to cache wether WarmUp has been called or not.
-		this.warm = False
+		this.isWarm = False
 
 		# The arguments provided to *this.
 		this.args = []
@@ -104,23 +104,36 @@ class Functor(Datum, BackwardsCompatible):
 		# Settings for dependency injection.
 		this.fetch = util.DotDict()
 
-		# Default places to Fetch from.
+		# All possible places to Fetch from.
 		# Add to this list when extending Fetch().
 		# Remove from this list to restrict Fetching behavior.
-		# Reorder this list to make Fetch more efficient for your use case.
-		# Also see FetchWith and FetchWithout for ease-of-use methods.
-		this.fetch.use = [
-			'this',
+		# NOTE: in order to use FetchWith, FetchWithout, etc., the desired locations MUST be in this list.
+		this.fetch.possibilities = [
 			'args',
-			'globals',
+			'this',
 			'config', #local (if applicable) or per Executor; should be before 'executor' if using a local config.
 			'epidef',
 			'precursor',
 			'caller',
 			'executor',
+			'globals',
 			'environment',
 		]
 
+		# The default Fetch locations.
+		# This is where args and other values populated by Fetch will be retrieved from.
+		# Reorder this list to make Fetch more efficient for your use case.
+		# Also see FetchWith and FetchWithout for ease-of-use methods.
+		this.fetch.use = [
+			'args',
+			'this',
+			'config',
+			'precursor',
+			# Caller and epidef need more rigorous testing before being enabled by default.
+			'executor',
+			'globals',
+			'environment',
+		]
 
 		this.fetch.attr = util.DotDict()
 
@@ -129,12 +142,13 @@ class Functor(Datum, BackwardsCompatible):
 		# Primarily, this method enables sequential Functors to access their precursor's attributes transparently.
 		# For example, if, instead of using this.methods, you set a function pointer as a member of a Functor, you can access that function pointer from the next Functor in the sequence (e.g. has_desired_members/can_access.desired_members)
 		this.fetch.attr.use = [
-			'precursor'
+			'precursor',
+			'epidef',
 		]
 
 		# Fetch is modular.
 		# You can add your own {'from':this.customSearchMethod} pairs to fetchLocations by overriding PopulateFetchLocations().
-		# Alternatively, you may add to fetchLocations automatically by adding a fetchFrom entry and defining a method called f"fetch_location_{your new fetchFrom entry}(this, varName, default)".
+		# Alternatively, you may add to fetchLocations automatically by adding a fetch.possibilities entry and defining a method called f"fetch_location_{your new fetchFrom entry}(this, varName, default)".
 		# The order of fetchLocations does not matter; the order of each fetchFrom provided to Fetch() does. This allows users to set their preferred search order for maximum efficiency.
 		this.fetch.locations = {}
 
@@ -231,18 +245,39 @@ class Functor(Datum, BackwardsCompatible):
 		this.callback.fetch = None
 
 		this.abort = util.DotDict()
-		this.abort.WarmUp = False
-		this.abort.CallNext = False
+		this.abort.warmup = False
+		this.abort.callnext = False
+		this.abort.function = False # Can be used by children.
 
-		this.cloning = util.DotDict()
-		this.cloning.exclusions = [
+		this.abort.returnWhenAborting = util.DotDict()
+		this.abort.returnWhenAborting.function = None
+
+		# Prevent stops certain attributes in *this from being used during particular processes.
+		# By default, we provide a list of attributes that should not be copied or assigned.
+		# You are welcome to extend these lists and the prevent member as you'd like.
+		this.prevent = util.DotDict()
+
+		# Excluded from deepcopy.
+		this.prevent.copying = [
+			'args',
+			'kwargs',
 			'executor',
 			'precursor',
-			'epidef',
-			'caller',
+			'epidef', # Manually assigned by regular copy, not deepcopy
+			'caller'
 			'next',
 			'callback',
 			'warm',
+		]
+
+		# Excluded from assignment.
+		this.prevent.assigning = [
+			'initialized',
+			'name',
+			'executor',
+			'precursor',
+			'epidef',
+			'next',
 		]
 
 		# Mappings to support older versions
@@ -321,11 +356,36 @@ class Functor(Datum, BackwardsCompatible):
 		pass
 
 
+	# Since python prevents overriding assignment, we'll use this method for now.
+	# Instead of writing functor1 = functor2, use functor1.AssignTo(functor2).
+	# NOTE: Unlike assignment in most languages, AssignTo will change the class of *this.
+	def AssignTo(this, other):
+		this.__class__ = other.__class__
+
+		# TODO: WTF??
+		try:
+			for key, val in other.__dict__.items():
+				if (key in this.prevent.assigning):
+					continue
+				try:
+					this.__dict__[key] = other.__dict__[key]
+				except:
+					logging.warning(f"Unable to set {this.name} ({type(this)}).{key} to {val}")
+		except:
+			for key, val in other.__dict__().items():
+				if (key in this.prevent.assigning):
+					continue
+				try:
+					this.__dict__.update({key: val})
+				except:
+					logging.warning(f"Unable to update the dict of {this.name} ({type(this)}).")
+
+
 	# Create a list of methods / member functions which will search different places for a variable.
 	# See the end of the file for examples of these methods.
 	def PopulateFetchLocations(this):
 		try:
-			for loc in this.fetch.use:
+			for loc in this.fetch.possibilities:
 				this.fetch.locations.update({loc:getattr(this,f"fetch_location_{loc}")})
 		except:
 			# If the user didn't define fetch_location_{loc}(), that's okay. No need to complain
@@ -400,12 +460,13 @@ class Functor(Datum, BackwardsCompatible):
 				cls = cls.__class__
 			if (issubclass(cls, Functor)):
 				value = cls(value=value)
+				value.Set('epidef', this)
 			else:
 				value = cls(value)
 		else:
 			value = this.EvaluateToType(value, evaluateExpressions)
 
-		logging.info(f"{varName} = {value} ({type(value)})")
+		logging.info(f"[{this.name}] {varName} = {value} ({type(value)})")
 		exec(f"this.{varName} = value")
 
 
@@ -421,8 +482,9 @@ class Functor(Datum, BackwardsCompatible):
 		if (attempted is None):
 			attempted = []
 
+		# This can happen if *this is both the epidef and the caller, etc.
 		if (this in attempted):
-			logging.debug(f"...{this} detected loop ({attempted}) while trying to fetch {varName}; using default: {default}.")
+			logging.debug(f"...{this} already tried to fetch {varName} (attempted: {attempted}); returning default: {default}.")
 			if (start):
 				return default
 			else:
@@ -441,9 +503,10 @@ class Functor(Datum, BackwardsCompatible):
 				# Maybe the location is meant for executor, precursor, etc.
 				continue
 
+			logging.debug(f"...{this.name} fetching {varName} from {loc}...")
 			ret, found = this.fetch.locations[loc](varName, default, fetchFrom, attempted)
 			if (found):
-				logging.debug(f"...{this.name} got {varName} from {loc}.")
+				logging.debug(f"...{this.name} got {varName} from {loc}: {ret} ({type(ret)}).")
 				if (this.callback.fetch):
 					this.callback.fetch(varName = varName, location = loc, value = ret)
 				if (start):
@@ -652,6 +715,9 @@ class Functor(Datum, BackwardsCompatible):
 	# When Fetching what to do next, everything is valid EXCEPT the environment. Otherwise, we could do something like `export next='nop'` and never quit.
 	# A similar situation arises when using the global config for each Functor. We only use the global config if *this has no precursor.
 	def PopulateNext(this):
+		if (not this.feature.sequential):
+			return
+
 		dontFetchFrom = [
 			'this',
 			'environment',
@@ -683,7 +749,7 @@ class Functor(Datum, BackwardsCompatible):
 	# RETURNS whether or not we should trigger the next Functor.
 	# Override this to add in whatever checks you need.
 	# PrepareNext will be called BEFORE ValidateNext, so you don't need to make any preparations here.
-	# NOTE: you may silently invalidate the next Functor by setting this.abort.CallNext = True and returning True.
+	# NOTE: you may silently invalidate the next Functor by setting this.abort.callnext = True and returning True.
 	def ValidateNext(this, next):
 		return True
 
@@ -735,7 +801,7 @@ class Functor(Datum, BackwardsCompatible):
 
 		nextFunctor = next
 
-		if (not this.warm):
+		if (not this.isWarm):
 			logging.warning(f"Please consider warming up {this.name} before using it in a sequence.")
 
 		# Before preparations are made, let's clone what is to come.
@@ -750,9 +816,9 @@ class Functor(Datum, BackwardsCompatible):
 		if (not this.ValidateNext(nextFunctor)):
 			raise InvalidNext(f"Failed to validate {nextName}")
 
-		if (this.abort.CallNext):
+		if (this.abort.callnext):
 			logging.warning(f"{this.name} not proceeding to next: {nextName} (aborted)")
-			this.abort.CallNext = False
+			this.abort.callnext = False
 			return None
 
 		if (this.GetExecutor()):
@@ -765,7 +831,7 @@ class Functor(Datum, BackwardsCompatible):
 	# All initialization should be done here.
 	# RETURN boolean indicating whether or not *this is ready to do work.
 	def WarmUp(this, *args, **kwargs):
-		this.warm = False
+		this.isWarm = False
 		logging.debug(f"Warming up {this.name}...")
 
 		if (this.feature.track):
@@ -773,7 +839,7 @@ class Functor(Datum, BackwardsCompatible):
 				# We just started a new sequence. We're not ready to do work yet.
 				if (FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state == 'initiated'):
 					this.incomplete = True
-					this.abort.WarmUp = True
+					this.abort.warmup = True
 					FunctorTracker.Instance().sequence.stage[FunctorTracker.Instance().sequence.current.stage].state = 'ready'
 		# NOTE: this.abortWarmUp will (should) be set by the precursor before calling *this.
 
@@ -784,8 +850,8 @@ class Functor(Datum, BackwardsCompatible):
 		this.args += args
 		this.kwargs.update(kwargs)
 
-		if (this.abort.WarmUp):
-			this.abort.WarmUp = False
+		if (this.abort.warmup):
+			this.abort.warmup = False
 			return False
 
 		this.result.code = 0
@@ -819,7 +885,7 @@ class Functor(Datum, BackwardsCompatible):
 				util.LogStack()
 
 		this.incomplete = False
-		this.warm = True
+		this.isWarm = True
 		return True
 
 
@@ -838,10 +904,26 @@ class Functor(Datum, BackwardsCompatible):
 		nextRet = None
 
 		try:
-			if (not this.warm or not set(args).issubset(set(this.args)) or not set(kwargs.keys()).issubset(set(this.kwargs.keys()))):
+			if (not this.isWarm):
 				this.WarmUp(*args, **kwargs)
+			else:
+				try:
+					# This particular bit of code if performant, but occasionally error prone.
+					# Particularly, this will fail if any arg is unhashable.
+					# in that case, we just say *this needs to be re-warmed.
+					if(not set(args).issubset(set(this.args)) or not set(kwargs.keys()).issubset(set(this.kwargs.keys()))):
+						this.WarmUp(*args, **kwargs)
+				except:
+					this.WarmUp(*args, **kwargs)
+
 			if (not this.feature.stayWarm):
-				this.warm = False
+				this.isWarm = False
+
+			if (this.abort.function):
+				logging.warning(f"{this.name} aborted.")
+				this.abort.function = False
+				this.isWarm = False
+				return this.abort.returnWhenAborting.function
 
 			if (this.feature.track and this.feature.sequential):
 				# TODO: Can we make this more performant? We should avoid doing this every time if we can.
@@ -928,6 +1010,10 @@ class Functor(Datum, BackwardsCompatible):
 						return this.result.data[attribute]
 					except:
 						try:
+							# These are class variables, and shouldn't be Fetched.
+							if (attribute in ['classMethods']):
+								raise AttributeError(f"{this.name} has no attribute {attribute}")
+
 							fetchFrom = this.fetch.attr.use
 							obj, found = this.Fetch(attribute, None, fetchFrom, start=False)
 							if (found):
@@ -961,7 +1047,7 @@ class Functor(Datum, BackwardsCompatible):
 						# PopulateMethods will take care of recreating skipped Methods
 						# All other methods are dropped since they apparently have problems on some implementations.
 						continue
-					if (key in this.cloning.exclusions):
+					if (key in this.prevent.copying):
 						continue
 					setattr(ret, key, deepcopy(val, memodict))
 				except:
@@ -973,11 +1059,16 @@ class Functor(Datum, BackwardsCompatible):
 						# PopulateMethods will take care of recreating skipped Methods
 						# All other methods are dropped since they apparently have problems on some implementations.
 						continue
-					if (key in this.cloning.exclusions):
+					if (key in this.prevent.copying):
 						continue
 					setattr(ret, key, deepcopy(val, memodict))
 				except:
 					pass
+
+		# Manually copy of references, not deepcopy.
+		ret.executor = this.executor
+		ret.epidef = this.epidef
+
 		return ret
 
 
@@ -990,7 +1081,7 @@ class Functor(Datum, BackwardsCompatible):
 			return this
 		
 		this.next.append(next)
-		next.abort.WarmUp = False
+		next.abort.warmup = False
 		return this.CallNext()
 
 
@@ -1027,8 +1118,15 @@ class Functor(Datum, BackwardsCompatible):
 
 
 	def fetch_location_epidef(this, varName, default, fetchFrom, attempted):
+
+		# We should only fetch from the epidef implicitly.
+		# If we've explicitly defined an override, find the value elsewhere or use the default.
+		if (varName in this.arg.kw.optional.keys() or varName in this.arg.kw.required):
+			return default, False
+
 		if (this.epidef is None):
 			return default, False
+		
 		return this.epidef.FetchWithAndWithout(['this'], ['environment', 'globals', 'executor'], varName, default, fetchFrom, False, attempted)
 
 

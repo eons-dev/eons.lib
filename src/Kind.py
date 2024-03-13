@@ -114,7 +114,7 @@ def kind(
 			args = inspect.signature(function).parameters
 		if (source is None):
 			source = inspect.getsource(function)
-		
+
 		source = source[source.find(':\n')+1:].strip() # Will fail if an arg has ':\n' in it
 		source = re.sub(r'(^|[\s\[\(\{\*\+/-=%\^,])epidef([\s\[\]\.\(\)\}\*\+/-=%\^,]|$)', r'\1this.epidef\2', source)
 

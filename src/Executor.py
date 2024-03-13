@@ -37,6 +37,16 @@ class Executor(DataContainer, Functor):
 		this.SetupLogging()
 
 		super().__init__(name)
+		this.fetch.attr.use = []
+		for inapplicable in ['executor', 'precursor', 'epidef']:
+			try:
+				this.fetch.use.remove(inapplicable)
+			except:
+				pass
+			try:
+				this.fetch.possibilities.remove(inapplicable)
+			except:
+				pass
 
 		this.arg.kw.optional['log_time_stardate'] = True
 		this.arg.kw.optional['log_indentation'] = True
@@ -207,9 +217,6 @@ class Executor(DataContainer, Functor):
 	# Configure class defaults.
 	# Override this to customize your Executor.
 	def Configure(this):
-		this.fetch.use.remove('executor') # No no no no!
-		this.fetch.use.remove('precursor') # Not applicable here.
-
 		# Usually, Executors shunt work off to other Functors, so we leave these True unless a child needs to check its work.
 		this.functionSucceeded = True
 		this.rollbackSucceeded = True

@@ -6,8 +6,11 @@ from .SelfRegistering import SelfRegistering
 from .Functor import Functor
 from .Utils import util
 
-def METHOD_PENDING_POPULATION(obj, *args, **kwargs):
-	raise MethodPendingPopulation("METHOD PENDING POPULATION")
+def GetPendingMethod(methodName):
+	def METHOD_PENDING_POPULATION(obj, *args, **kwargs):
+		raise MethodPendingPopulation(f"METHOD {methodName} PENDING POPULATION")
+	return METHOD_PENDING_POPULATION
+
 
 # Store the new method in the class
 def PrepareClassMethod(cls, name, methodToAdd):
@@ -24,7 +27,7 @@ def PrepareClassMethod(cls, name, methodToAdd):
 	# We rely on Functor.PopulateMethods to re-establish the method as callable.
 	# It seems like this just outright removes the methods. There may be an issue with using __get__ this way.
 	# Regardless deleting the method is okay as long as we add it back before anyone notices.
-	setattr(cls, name, METHOD_PENDING_POPULATION.__get__(cls))
+	setattr(cls, name, GetPendingMethod(name).__get__(cls))
 
 # Use the @method() decorator to turn any class function into an eons Method Functor.
 # Methods are Functors which can be implicitly transferred between classes (see Functor.PopulateMethods)
