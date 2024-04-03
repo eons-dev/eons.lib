@@ -333,6 +333,8 @@ class Executor(DataContainer, Functor):
 	# Calling this multiple times will add multiple log handlers.
 	def SetLogFile(this):
 		this.Set('log_file', this.Fetch('log_file', None, this.fetch.useDuringSetup))
+		this.log.file = this.log_file
+
 		if (this.log.file is None):
 			return
 
