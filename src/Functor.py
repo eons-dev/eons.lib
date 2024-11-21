@@ -280,6 +280,12 @@ class Functor(Datum, BackwardsCompatible):
 			'next',
 		]
 
+		# If AssignTo is called with merge=True, these attributes will be merged instead of overwritten.
+		this.mergeWhenAssigning = [
+			'arg',
+			'fetch',
+		]
+
 		# Mappings to support older versions
 		this.MaintainCompatibilityFor(2.0, {
 			'method.call': 'callMethod',
@@ -358,8 +364,9 @@ class Functor(Datum, BackwardsCompatible):
 
 	# Since python prevents overriding assignment, we'll use this method for now.
 	# Instead of writing functor1 = functor2, use functor1.AssignTo(functor2).
+	# If you'd like to merge values where applicable, set merge=True and make sure this.mergeWhenAssigning contains everything you'd like to merge.
 	# NOTE: Unlike assignment in most languages, AssignTo will change the class of *this.
-	def AssignTo(this, other):
+	def AssignTo(this, other, merge=True):
 		this.__class__ = other.__class__
 
 		# TODO: WTF??
@@ -368,17 +375,62 @@ class Functor(Datum, BackwardsCompatible):
 				if (key in this.prevent.assigning):
 					continue
 				try:
-					this.__dict__[key] = other.__dict__[key]
-				except:
-					logging.warning(f"Unable to set {this.name} ({type(this)}).{key} to {val}")
+					if (merge and key in this.mergeWhenAssigning):
+						this.MergeRecursive(this.__dict__[key], val)
+					else:
+						this.__dict__[key] = other.__dict__[key]
+				except Exception as e:
+					logging.warning(f"Unable to set {this.name} ({type(this)}).{key} to {val}: {e}")
 		except:
 			for key, val in other.__dict__().items():
 				if (key in this.prevent.assigning):
 					continue
 				try:
-					this.__dict__.update({key: val})
+					if (merge and key in this.mergeWhenAssigning):
+						this.MergeRecursive(this.__dict__[key], val)
+					else:
+						this.__dict__.update({key: val})
 				except:
 					logging.warning(f"Unable to update the dict of {this.name} ({type(this)}).")
+
+
+	# Make everything in the solute available in the solvent.
+	# Will modify the solvent (i.e. non-const) but not the solute (i.e. const).
+	# Implemented as a method for use of this.mergeWhenAssigning and future proofing.
+	# NOTE: This currently uses shallow copies.
+	def MergeRecursive(this, solvent, solute):
+		if (not isinstance(solute, type(solvent))):
+			logging.error(f"Cannot merge {solute} ({type(solute)}) into  {solvent} ({type(solvent)})")
+			return
+
+		logging.debug(f"Merging {solute} into {solvent}")
+
+		if (isinstance(solvent, Functor)):
+			for key, val in solute.__dict__.items():
+				if (key in solvent.prevent.assigning):
+					continue
+				if (key in solvent.mergeWhenAssigning):
+					if (isinstance(val, Functor) or isinstance(val, dict) or isinstance(val, list)):
+						solvent.MergeRecursive(solvent.__dict__[key], val)
+					else:
+						solvent.Set(key, val, evaluateExpressions=False)
+				else:
+					solvent.Set(key, val, evaluateExpressions=False)
+		elif (isinstance(solvent, dict)):
+			for key, val in solute.items():
+				if (key in solvent.keys()):
+					if (isinstance(val, Functor) or isinstance(val, dict) or isinstance(val, list)):
+						this.MergeRecursive(solvent[key], val)
+					else:
+						solvent[key] = val # Assign
+				else:
+					solvent[key] = val # Create
+		elif (isinstance(solvent, list)):
+			for val in solute:
+				if (val not in solvent):
+					solvent.append(val)
+		else:
+			solvent = solute
 
 
 	# Create a list of methods / member functions which will search different places for a variable.
@@ -991,6 +1043,10 @@ class Functor(Datum, BackwardsCompatible):
 		logging.info(f"}} ({this.name})")
 
 		return ret
+
+	# Ease of use method, so people don't have to write __getattr__ or Fetch(..., fetchfrom=['this']) if they want to get a value.
+	def Get(this, attribute):
+		return this.__getattr__(attribute)
 
 
 	# Reduce the work required to access return values.

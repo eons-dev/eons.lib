@@ -76,6 +76,24 @@ def kind(
 			
 		return functor, source, ctor
 
+	# Python requires us to manually build the meta class when resolving diamod inheritance.
+	def GetCommonMetaClass(bases):
+		# Collect metaclasses from bases
+		metaclasses = [type(base) for base in bases]
+		if len(metaclasses) == 1:
+			return metaclasses[0]
+
+		# Ensure all metaclasses are compatible
+		commonMeta = metaclasses[0]
+		for meta in metaclasses[1:]:
+			if not issubclass(meta, commonMeta):
+				# Merge metaclasses if they are not compatible
+				class MergedMeta(meta, commonMeta):
+					pass
+				commonMeta = MergedMeta
+		return commonMeta
+
+
 	def FunctionToFunctor(function, functorName=None, args=None, source=None, strongType=False):
 		executor = ExecutorTracker.GetLatest()
 		shouldLog = executor and executor.verbosity > 3
@@ -93,15 +111,25 @@ def kind(
 		bases = base
 		if (isinstance(bases, type)):
 			bases = [bases]
-		
-		primaryFunctionName = bases[0].primaryFunctionName
+
+		try:
+			primaryFunctionName = bases[0].primaryFunctionName
+		except Exception as e:
+			# Just add some logs, but don't try to fix.
+			# This is fatal (i.e. something larger is wrong than just the name 'Function' missing).
+			logging.error(f"Failed to get primary function name from {bases[0]}: {e}")
+			logging.debug(f"bases: {bases}")
+			raise e
+
+		# Ensure all bases are classes
+		bases = [type(base) if not isinstance(base, type) else base for base in bases]
 
 		if (functorName is None):
 			functorName = function.__name__
 
 		logging.debug(f"Creating '{functorName}' from {bases} in module '{destinedModuleName if destinedModule else 'eons'}'")
 
-		functor = type(
+		functor = GetCommonMetaClass(bases)(
 			functorName,
 			(*bases,),
 			{}

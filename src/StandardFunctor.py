@@ -76,6 +76,24 @@ class StandardFunctor(Functor):
 				for error in errors:
 					src, dst, msg = error
 					logging.debug(f"{msg}")
+				for sub in Path(source).iterdir():
+					if (sub.is_dir()):
+						try:
+							shutil.copytree(sub, Path(destination).joinpath(sub.name))
+						except shutil.Error as exc2:
+							errors = exc2.args[0]
+							for error in errors:
+								src, dst, msg = error
+								logging.debug(f"{msg}")
+					else:
+						try:
+							shutil.copy(sub, Path(destination).joinpath(sub.name))
+						except shutil.Error as exc2:
+							errors = exc2.args[0]
+							for error in errors:
+								src, dst, msg = error
+								logging.debug(f"{msg}")
+							
 		else:
 			logging.error(f"Could not find source to copy: {source}")
 

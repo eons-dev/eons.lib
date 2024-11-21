@@ -51,8 +51,8 @@ class Executor(DataContainer, Functor):
 		this.arg.kw.optional['log_time_stardate'] = True
 		this.arg.kw.optional['log_indentation'] = True
 		this.arg.kw.optional['log_tab_width'] = 2
-		this.arg.kw.optional['log_aggregate'] = True
-		this.arg.kw.optional['log_aggregate_url'] = "https://eons.sh/log"
+		this.arg.kw.optional['log_aggregate'] = False # log aggregation currently has no target.
+		this.arg.kw.optional['log_aggregate_url'] = "https://eons.sh/log" # Once this infra is up, we can enable the above.
 
 		# Executors should have control over their returns, if they have any.
 		this.feature.autoReturn = False
@@ -67,8 +67,9 @@ class Executor(DataContainer, Functor):
 			'find_by_fetch',
 			'import_module',
 			'namespace_lookup',
-			'install_from_repo_with_default_package_type',
-			'install_from_repo',
+			'observe',
+			# 'install_from_repo_with_default_package_type', # repo is deprecated in favor of constellatus.
+			# 'install_from_repo',
 			'install_with_pip'
 		]
 
@@ -730,14 +731,15 @@ class Executor(DataContainer, Functor):
 		return True
 
 	# Use Constellatus to grab a SelfRegistering class.
-	def LocateStarCluster(this, starCluster):
+	# Observe should NOT be recoverable. We may want to take action if we can't find an existing Functor (e.g. GetOrCreate)
+	def Observe(this, regionOfInterest):
 		if (not this.observatory.online):
-			logging.debug(f"Refusing to locate {starCluster}; we were told not to use an observatory.")
-			raise ConstellatusError(f"Unable to locate {starCluster}: Observatory is offline.")
-		
-		logging.debug(f"Locating {starCluster}")
+			logging.debug(f"Refusing to locate {regionOfInterest}; we were told not to use an observatory.")
+			raise ConstellatusError(f"Unable to locate {regionOfInterest}: Observatory is offline.")
 
-		url = f"{this.observatory.url}/{starCluster}"
+		logging.debug(f"Locating {regionOfInterest}")
+
+		url = f"{this.observatory.url}/{regionOfInterest}"
 
 		auth = None
 		if this.observatory.username and this.observatory.password:
@@ -750,19 +752,21 @@ class Executor(DataContainer, Functor):
 		observation = requests.get(url, auth=auth, headers=headers, stream=True)
 
 		if (observation.status_code != 200):
-			raise ConstellatusError(f"Unable to locate {starCluster}")
-		
-		try:
-			# Load the code from Constellatus into a module on the fly
-			moduleName = starCluster.replace(':', '_').replace('.', '_')
-			spec = importlib.util.spec_from_loader(moduleName, loader=None)
-			module = importlib.util.module_from_spec(spec)
-			exec(observation.content, module.__dict__)
-			sys.modules[moduleName] = module
-			globals()[moduleName] = module
-			logging.debug(f"Completed observation of {starCluster}")
-		except Exception as e:
-			raise ConstellatusError(f"Unable to locate {starCluster}: {e}")
+			raise ConstellatusError(f"Unable to locate {regionOfInterest}")
+
+		this.RecordObservation(regionOfInterest, observation)
+		logging.debug(f"Completed observation of {regionOfInterest}")
+
+
+	# Load the code from Constellatus into a module on the fly
+	@recoverable
+	def RecordObservation(this, regionOfInterest, observation):
+		moduleName = regionOfInterest.replace(':', '_').replace('.', '_')
+		spec = importlib.util.spec_from_loader(moduleName, loader=None)
+		module = importlib.util.module_from_spec(spec)
+		exec(observation.content, module.__dict__)
+		sys.modules[moduleName] = module
+		globals()[moduleName] = module
 
 
 	# RETURNS and instance of a Datum, Functor, etc. (aka modules) which has been discovered by a prior call of RegisterAllClassesInDirectory()
@@ -789,7 +793,7 @@ class Executor(DataContainer, Functor):
 		except Exception as e:
 			try:
 				# If the Observatory is online, let's try to use Constellatus.
-				this.LocateStarCluster(f"{str(Namespace(namespace))}{registeredName}{packageType}")
+				this.Observe(f"{str(Namespace(namespace))}{registeredName}{packageType}")
 				registered = SelfRegistering(registeredName)
 			except: # We don't care about Constellatus errors right now.
 
