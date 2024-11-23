@@ -162,6 +162,12 @@ class Executor(DataContainer, Functor):
 		# We can't Fetch from everywhere while we're getting things going. However, these should be safe,
 		this.fetch.useDuringSetup = ['args', 'config', 'environment']
 
+		# Because Elderlang derives from eons, we cannot provide out-of-the-box support for .ldr files and Elder logic.
+		# However, we can lay the groundwork for other Executors to be "elder-enabled".
+		# We make that process easy by only requiring that this.elder be set.
+		# Once this.elder is valid, any directory that is loaded into the SelfRegistering logic will be scanned for .ldr scripts, all of which will be executed.
+		this.elder = None
+
 		this.MaintainCompatibilityFor(2.0, {
 			'error.resolve': 'resolveErrors',
 			'error.resolvers': 'resolveErrorsWith',
@@ -822,7 +828,7 @@ class Executor(DataContainer, Functor):
 		if (directory not in this.syspath):
 			this.syspath.append(directory)
 
-		SelfRegistering.RegisterAllClassesInDirectory(directory, recurse=recurse)
+		SelfRegistering.RegisterAllClassesInDirectory(directory, recurse=recurse, elder=this.elder)
 
 
 	# Set a global value for use throughout all python modules.

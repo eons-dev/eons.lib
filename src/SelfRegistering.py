@@ -50,18 +50,32 @@ class SelfRegistering(object):
 
 	# Registering classes is typically depth-first.
 	@staticmethod
-	def RegisterAllClassesInDirectory(directory, recurse=True):
+	def RegisterAllClassesInDirectory(directory, recurse=True, elder=None):
 		logging.debug(f"Loading SelfRegistering classes in {directory}")
 		directoryContents = [i for i in sorted(os.listdir(directory)) if not i.startswith('_')]
 
 		directories = [i for i in directoryContents if os.path.isdir(os.path.join(directory, i))]
 		files = [i for i in directoryContents if os.path.isfile(os.path.join(directory, i))]
-		files = [f for f in files if f.endswith('.py')]
+		pyFiles = [f for f in files if f.endswith('.py')]
+		ldrFiles = [f for f in files if f.endswith('.ldr')]
 
 		if (recurse):
 			for dir in directories:				
-				SelfRegistering.RegisterAllClassesInDirectory(os.path.join(directory, dir), recurse)
+				SelfRegistering.RegisterAllClassesInDirectory(os.path.join(directory, dir), recurse, elder)
 
+		if (len(pyFiles)):
+			SelfRegistering.RegisterPythonFiles(directory, pyFiles)
+
+		if (len(ldrFiles) and elder):
+			SelfRegistering.RegisterElderFiles(directory, ldrFiles, elder)
+
+		# enable importing and inheritance for SelfRegistering classes
+		if (directory not in sys.path):
+			sys.path.append(directory)
+
+
+	@staticmethod
+	def RegisterPythonFiles(directory, files):
 		logging.debug(f"Available modules: {files}")
 		for file in files:
 			moduleName = file.split('.')[0]
@@ -91,6 +105,10 @@ class SelfRegistering(object):
 			#	 importer.find_module(module).exec_module(module) #fails with "AttributeError: 'str' object has no attribute '__name__'"
 			#	 importer.find_module(module).load_module(module) #Deprecated
 
-		# enable importing and inheritance for SelfRegistering classes
-		if (directory not in sys.path):
-			sys.path.append(directory)
+
+	@staticmethod
+	def RegisterElderFiles(directory, files, elder):
+		logging.debug(f"Elder scripts: {files}")
+		for file in files:
+			# This should be enough.
+			elder.ExecuteLDR(os.path.join(directory, file))
