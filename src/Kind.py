@@ -18,7 +18,14 @@ def kind(
 		# Code duplicated from Method.PopulateFrom. See that class for more info.
 		for arg in args.values():
 			if (arg.name == 'constructor' or arg.name == '__init__'):
-				ctor.additions += f"{arg.default}\n"
+				if (hasattr(arg, 'type') and "eons.eons" in str(arg.type)):
+					ctor.additions += f"""
+this.constructor = {str(arg.type)[8:-2]}()
+this.constructor.epidef = this
+this.constructor()
+"""
+				else:
+					ctor.additions += f"{arg.default}\n"
 				continue
 
 			replaceWith = arg.name
